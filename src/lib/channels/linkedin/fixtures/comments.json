@@ -1,0 +1,28 @@
+{
+  "elements": [
+    {
+      "id": "7001",
+      "commentUrn": "urn:li:comment:(urn:li:activity:111,7001)",
+      "actor": "urn:li:person:abc123",
+      "object": "urn:li:activity:111",
+      "message": { "text": "Great post. Are you hiring in Lisbon?" },
+      "created": { "time": 1760259600000 }
+    },
+    {
+      "id": "7002",
+      "commentUrn": "urn:li:comment:(urn:li:activity:111,7002)",
+      "actor": "urn:li:organization:5555",
+      "object": "urn:li:activity:111",
+      "message": { "text": "Our own earlier answer" },
+      "created": { "time": 1760259700000 }
+    },
+    {
+      "id": "7000",
+      "commentUrn": "urn:li:comment:(urn:li:activity:111,7000)",
+      "actor": "urn:li:person:old",
+      "object": "urn:li:activity:111",
+      "message": { "text": "A comment from before we connected" },
+      "created": { "time": 1760000000000 }
+    }
+  ]
+}

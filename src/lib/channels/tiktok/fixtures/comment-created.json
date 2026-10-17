@@ -1,0 +1,7 @@
+{
+  "client_key": "ck_test",
+  "event": "comment.update",
+  "create_time": 1760259600,
+  "user_openid": "biz-123",
+  "content": "{\"business_id\":\"biz-123\",\"comment_id\":\"c-1\",\"video_id\":\"v-1\",\"user_id\":\"u-9\",\"username\":\"fan_account\",\"text\":\"Where can I buy this?\",\"action\":\"create\"}"
+}

@@ -1,0 +1,13 @@
+Message-ID: <ooo-1@mail.example.org>
+In-Reply-To: <9d1c3a52-0001@in.example.test>
+Date: Tue, 3 Jun 2025 10:13:00 +0000
+From: Frank Away <frank@example.org>
+To: acme@in.example.test
+Subject: Automatic reply: Your request #1042 was received
+Auto-Submitted: auto-replied
+X-Auto-Response-Suppress: All
+Precedence: auto_reply
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+
+I am out of the office until Monday and will reply when I am back.

@@ -1,0 +1,17 @@
+{
+  "name": "zen-try-widget",
+  "version": "1.0.0",
+  "description": "Embeddable Live Chat Support Widget for Zen-try",
+  "main": "dist/widget.js",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --minify --format=iife --outfile=../public/widget.js --target=es2020",
+    "watch": "esbuild src/index.ts --bundle --watch --format=iife --outfile=../public/widget.js --target=es2020"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "^5.0.0"
+  }
+}

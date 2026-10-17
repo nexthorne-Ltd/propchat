@@ -1,0 +1,17 @@
+Return-Path: <alice@example.org>
+Received: from mail.example.org by mx.example.test; Tue, 3 Jun 2025 10:12:00 +0000
+Message-ID: <CAF+new1@mail.example.org>
+Date: Tue, 3 Jun 2025 10:12:00 +0000
+From: Alice Example <Alice@Example.org>
+To: Acme Support <help@acme.test>
+Cc: Bob Colleague <bob@example.org>, carol@example.org
+Subject: Cannot log in to my account
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+
+Hi,
+
+I cannot log in since this morning. The page says "invalid token".
+
+Thanks,
+Alice

@@ -1,0 +1,34 @@
+{
+  "app_id": "1234567890",
+  "topic": "moderate",
+  "target_id": "17841400000000000",
+  "time": 1760259600,
+  "subscription_id": "sub-1",
+  "has_sample_data": false,
+  "values": [
+    {
+      "field": "replies",
+      "value": {
+        "id": "18000000000000001",
+        "username": "Jo_K",
+        "text": "Does this ship to Canada?",
+        "media_product_type": "THREADS",
+        "permalink": "https://www.threads.com/@jo_k/post/AbC123",
+        "replied_to": { "id": "17900000000000009" },
+        "root_post": { "id": "17900000000000009" },
+        "timestamp": "2026-10-12T09:00:00+0000"
+      }
+    },
+    {
+      "field": "mentions",
+      "value": {
+        "id": "18000000000000002",
+        "username": "mia",
+        "text": "@acme loving the new design",
+        "permalink": "https://www.threads.com/@mia/post/DeF456",
+        "timestamp": "2026-10-12T09:05:00+0000"
+      }
+    },
+    { "field": "publish", "value": { "id": "18000000000000003" } }
+  ]
+}

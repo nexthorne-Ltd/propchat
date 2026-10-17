@@ -1,0 +1,93 @@
+{
+  "facts": {
+    "title": "Zen-try — Live chat your customers actually want to use",
+    "kpiCards": [],
+    "buttonsOnPage": [
+      "All Companies (Platform Admin)",
+      "ZenTry Master Platform Email (Super Admin)",
+      "Super Admin Audit Log",
+      "Workspace Settings & Team",
+      "Data Issues36",
+      "Refresh",
+      "Export CSV",
+      "Re-sync domains with Vercel",
+      "New Company",
+      "Platform Analytics & Radar",
+      "Companies Directory (8)",
+      "7 Days",
+      "30 Days",
+      "90 Days",
+      "Export CSV",
+      "7 Days",
+      "30 Days",
+      "90 Days",
+      "Refresh",
+      "Export CSV",
+      "Insights",
+      "Insights",
+      "Insights",
+      "Insights"
+    ],
+    "linksOnPage": [
+      {
+        "text": "",
+        "href": "/dashboard"
+      },
+      {
+        "text": "",
+        "href": "/dashboard"
+      },
+      {
+        "text": "www.range4ex.com",
+        "href": "https://www.range4ex.com"
+      },
+      {
+        "text": "www.genzprop.com/",
+        "href": "https://www.genzprop.com/"
+      },
+      {
+        "text": "novacloud.example.com",
+        "href": "https://novacloud.example.com"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "category": "UX / Missing Link",
+      "severity": "Medium",
+      "issue": "No super admin navigation link on the main agent dashboard for platform owner"
+    }
+  ],
+  "consoleLogs": [
+    "[Console info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[Console log]: [HMR] connected",
+    "[Console warning]: Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior=\"smooth\"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior",
+    "[Console info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[Console log]: [HMR] connected",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 119ms",
+    "[Console info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[Console log]: [HMR] connected",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 9231ms",
+    "[Console info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[Console log]: [HMR] connected",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 584ms",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 202ms",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 227ms",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 170ms",
+    "[Console info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[Console log]: [HMR] connected",
+    "[Console info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[Console log]: [HMR] connected",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 578ms",
+    "[Console info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[Console log]: [HMR] connected"
+  ],
+  "errors": []
+}

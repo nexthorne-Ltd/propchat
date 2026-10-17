@@ -1,0 +1,28 @@
+Message-ID: <CAF+reply1@mail.example.org>
+In-Reply-To: <9d1c3a52-0001@in.example.test>
+References: <CAF+new1@mail.example.org> <9d1c3a52-0001@in.example.test>
+Date: Tue, 3 Jun 2025 11:40:00 +0000
+From: Alice Example <alice@example.org>
+To: Acme Support <acme+t1042-aaaaaaaaaa@in.example.test>
+Subject: Re: Cannot log in to my account [#1042]
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="b1"
+
+--b1
+Content-Type: text/plain; charset=UTF-8
+
+That worked, thank you! One more question: can I change my email?
+
+On Tue, 3 Jun 2025 at 11:02, Acme Support <acme@in.example.test> wrote:
+
+> Hi Alice,
+>
+> Please try resetting your password from the login page.
+>
+> -- Please reply above this line --
+
+--b1
+Content-Type: text/html; charset=UTF-8
+
+<div dir="ltr">That worked, thank you! One more question: can I change my email?</div><br><div class="gmail_quote"><div dir="ltr" class="gmail_attr">On Tue, 3 Jun 2025 at 11:02, Acme Support wrote:<br></div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex"><p>Hi Alice, please try resetting your password.</p></blockquote></div>
+--b1--

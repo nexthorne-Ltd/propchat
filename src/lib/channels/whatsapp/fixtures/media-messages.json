@@ -1,0 +1,77 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "102290129340398",
+      "changes": [
+        {
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": { "display_phone_number": "15550783881", "phone_number_id": "106540352242922" },
+            "contacts": [{ "profile": { "name": "Sheena Nelson" }, "wa_id": "16505551234" }],
+            "messages": [
+              {
+                "from": "16505551234",
+                "id": "wamid.IMAGE1",
+                "timestamp": "1749416400",
+                "type": "image",
+                "image": { "caption": "This is the broken part", "mime_type": "image/jpeg", "sha256": "abc", "id": "1003383421387256" }
+              },
+              {
+                "from": "16505551234",
+                "id": "wamid.DOC1",
+                "timestamp": "1749416401",
+                "type": "document",
+                "document": { "filename": "invoice-5512.pdf", "mime_type": "application/pdf", "sha256": "def", "id": "1003383421387257" }
+              },
+              {
+                "from": "16505551234",
+                "id": "wamid.AUDIO1",
+                "timestamp": "1749416402",
+                "type": "audio",
+                "audio": { "mime_type": "audio/ogg; codecs=opus", "sha256": "ghi", "id": "1003383421387258", "voice": true }
+              },
+              {
+                "from": "16505551234",
+                "id": "wamid.LOC1",
+                "timestamp": "1749416403",
+                "type": "location",
+                "location": { "latitude": 37.483307, "longitude": 122.148981, "name": "Philz Coffee", "address": "101 Forest Ave, Palo Alto" }
+              },
+              {
+                "from": "16505551234",
+                "id": "wamid.BTN1",
+                "timestamp": "1749416404",
+                "type": "button",
+                "context": { "from": "15550783881", "id": "wamid.TEMPLATE_SENT" },
+                "button": { "payload": "TRACK", "text": "Track my order" }
+              },
+              {
+                "from": "16505551234",
+                "id": "wamid.REACT1",
+                "timestamp": "1749416405",
+                "type": "reaction",
+                "reaction": { "message_id": "wamid.OUT1", "emoji": "👍" }
+              },
+              {
+                "from": "16505551234",
+                "id": "wamid.UNSUP1",
+                "timestamp": "1749416406",
+                "type": "unsupported",
+                "errors": [{ "code": 131051, "title": "Message type unknown" }]
+              },
+              {
+                "from": "16505551234",
+                "id": "wamid.SYS1",
+                "timestamp": "1749416407",
+                "type": "system",
+                "system": { "body": "User changed number", "type": "user_changed_number" }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "for_user_id": "2244994945",
+  "direct_message_events": [
+    {
+      "type": "message_create",
+      "id": "1904",
+      "created_timestamp": "1760259000000",
+      "message_create": { "target": { "recipient_id": "2244994945" }, "sender_id": "9001", "message_data": { "text": "Hi, is my refund approved?" } }
+    },
+    {
+      "type": "message_create",
+      "id": "1905",
+      "created_timestamp": "1760259100000",
+      "message_create": { "target": { "recipient_id": "9001" }, "sender_id": "2244994945", "message_data": { "text": "Echo of our own reply" } }
+    }
+  ],
+  "users": { "9001": { "id": "9001", "name": "Dana Lee", "screen_name": "dana_lee" } },
+  "tweet_create_events": [
+    {
+      "id_str": "7001",
+      "text": "@acme still waiting on order 5512",
+      "timestamp_ms": "1760259600000",
+      "user": { "id_str": "9002", "name": "Sam", "screen_name": "sam_r" },
+      "entities": { "user_mentions": [{ "id_str": "2244994945", "screen_name": "acme" }] },
+      "in_reply_to_user_id_str": null
+    },
+    {
+      "id_str": "7002",
+      "text": "@acme thanks, that fixed it!",
+      "timestamp_ms": "1760259700000",
+      "user": { "id_str": "9003", "name": "Pat", "screen_name": "pat" },
+      "entities": { "user_mentions": [{ "id_str": "2244994945", "screen_name": "acme" }] },
+      "in_reply_to_user_id_str": "2244994945",
+      "in_reply_to_status_id_str": "6999"
+    },
+    {
+      "id_str": "7003",
+      "text": "RT @acme: big news",
+      "user": { "id_str": "9004", "screen_name": "rt_fan" },
+      "retweeted_status": { "id_str": "1" },
+      "entities": { "user_mentions": [{ "id_str": "2244994945" }] }
+    },
+    {
+      "id_str": "7004",
+      "text": "our own announcement",
+      "user": { "id_str": "2244994945", "screen_name": "acme" },
+      "entities": { "user_mentions": [] }
+    },
+    {
+      "id_str": "7005",
+      "text": "unrelated post in the stream",
+      "user": { "id_str": "9005", "screen_name": "other" },
+      "entities": { "user_mentions": [] }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+Message-ID: <html-1@mail.example.org>
+Date: Fri, 6 Jun 2025 07:00:00 +0000
+From: Mallory <mallory@example.org>
+To: help@acme.test
+Subject: Please read
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+
+<style>body{display:none}</style><script>alert(1)</script><p onclick="steal()" style="color:red">Hello <b>team</b>, see <a href="javascript:alert(1)">this</a> and <a href="https://example.org/docs">the docs</a>.</p><img src="https://tracker.example.org/pixel.gif"><iframe src="https://evil.test"></iframe><form action="https://evil.test"><input name="x"></form>

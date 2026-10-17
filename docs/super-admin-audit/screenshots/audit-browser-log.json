@@ -1,0 +1,26 @@
+{
+  "consoleLogs": [
+    "[Console info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[Console log]: [HMR] connected",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 264ms",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 529ms",
+    "[Console error]: Failed to load resource: the server responded with a status of 400 ()",
+    "[Console info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[Console log]: [HMR] connected",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 684ms",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 534ms",
+    "[Console log]: [Fast Refresh] rebuilding",
+    "[Console log]: [Fast Refresh] done in 584ms",
+    "[Console info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[Console log]: [HMR] connected",
+    "[Console info]: %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+    "[Console log]: [HMR] connected"
+  ],
+  "errors": [
+    "[Console error]: Failed to load resource: the server responded with a status of 400 ()"
+  ]
+}

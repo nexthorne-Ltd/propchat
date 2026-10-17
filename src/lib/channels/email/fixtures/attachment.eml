@@ -1,0 +1,30 @@
+Message-ID: <attach-1@mail.example.org>
+Date: Thu, 5 Jun 2025 09:30:00 +0000
+From: Erin Example <erin@example.org>
+To: help@acme.test
+Subject: Screenshot of the error
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mix"
+
+--mix
+Content-Type: multipart/related; boundary="rel"
+
+--rel
+Content-Type: text/html; charset=UTF-8
+
+<p>See the screenshot below and the attached log.</p><img src="cid:shot1@mail.example.org" alt="screenshot">
+--rel
+Content-Type: image/png; name="shot.png"
+Content-Transfer-Encoding: base64
+Content-ID: <shot1@mail.example.org>
+Content-Disposition: inline; filename="shot.png"
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==
+--rel--
+--mix
+Content-Type: text/plain; name="error.log"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="error.log"
+
+RVJST1IgMjAyNS0wNi0wNSAwOTozMDowMCBsb2dpbiBmYWlsZWQK
+--mix--

@@ -1,0 +1,1183 @@
+@import "tailwindcss";
+
+/* Theming is driven by `data-theme` on <html>, not by a `.dark` class, so
+   Tailwind's `dark:` variant has to be taught the same rule. Without this every
+   `dark:*` utility in the app compiles to nothing. Both branches are needed:
+   an explicit choice, and the system default when no choice is stored. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ==========================================================================
+   ZENTRY DESIGN SYSTEM — tokens
+   Flat, high-contrast, one accent (electric blue). Light-first; dark is a
+   token swap. Every colour in the app resolves through these variables, and
+   docs/DESIGN.md explains when to use which. Text/background pairs are held to
+   WCAG AA by src/lib/design/tokens.test.ts, which reads this file, so a
+   change that drops a pair below 4.5:1 fails the test suite.
+   ========================================================================== */
+
+:root {
+  /* --- Surfaces --- */
+  --ds-canvas: #fbfbf9;          /* page background */
+  --ds-canvas-alt: #f4f4f1;      /* alternating section band */
+  --ds-surface: #ffffff;         /* cards, panels, popovers */
+  --ds-surface-2: #f7f7f5;       /* nested / inset panels, table headers */
+  --ds-surface-3: #eeeeeb;       /* hover fill, tracks */
+  --ds-overlay: rgba(11, 11, 15, 0.44);
+
+  /* --- Ink (text) --- */
+  --ds-ink: #0b0b0f;             /* primary text */
+  --ds-ink-2: #4f5057;           /* secondary text */
+  --ds-ink-3: #64656c;           /* muted / meta — still AA on every surface */
+  --ds-ink-inv: #ffffff;         /* text on ink surfaces */
+
+  /* --- Lines --- */
+  --ds-line: #e7e7e3;
+  --ds-line-2: #d6d6d1;
+  --ds-line-3: #bcbcb6;
+
+  /* --- The one accent. Primary actions, links, focus, selection. --- */
+  --ds-accent: #2850e8;
+  --ds-accent-hover: #1f43cc;
+  --ds-accent-ink: #ffffff;
+  --ds-accent-soft: #edf1ff;     /* tinted background */
+  --ds-accent-line: #c9d5ff;
+
+  /* Primary buttons are the accent. Kept as separate names so a future
+     brand can split them without touching components. */
+  --ds-primary: var(--ds-accent);
+  --ds-primary-hover: var(--ds-accent-hover);
+  --ds-primary-ink: var(--ds-accent-ink);
+
+  /* Surfaces that stay dark in BOTH themes — the editorial auth panel, the
+     closing CTA band, code blocks, tooltips. Distinct from --ds-ink, which is
+     a text colour and therefore flips to near-white in dark mode. */
+  --ds-invert: #0b0b0f;
+  --ds-invert-2: #1a1a20;
+  --ds-invert-ink: #ffffff;
+  --ds-invert-ink-2: rgba(255, 255, 255, 0.72);
+
+  /* Outgoing chat bubble */
+  --ds-bubble-out: #2850e8;
+  --ds-bubble-out-ink: #ffffff;
+
+  /* --- Status. Text colours are dark enough to read on their own -soft fill. --- */
+  --ds-success: #0b7a5c;
+  --ds-success-soft: #e6f6f1;
+  --ds-success-line: #b8e5d7;
+
+  --ds-warn: #8f5a06;
+  --ds-warn-soft: #fdf3e2;
+  --ds-warn-line: #f0d9ac;
+
+  --ds-danger: #c0233f;
+  --ds-danger-soft: #fdedf0;
+  --ds-danger-line: #f7c6d0;
+
+  --ds-info: #2850e8;
+  --ds-info-soft: #edf1ff;
+
+  /* --- Glass: only the app sidebar, modals/popovers and the chat widget --- */
+  --ds-glass-bg: rgba(255, 255, 255, 0.94);
+  --ds-glass-border: rgba(11, 11, 15, 0.08);
+  --ds-glass-blur: 24px;
+
+  /* --- Elevation: soft, layered, never muddy --- */
+  --ds-shadow-xs: 0 1px 2px rgba(11, 11, 15, 0.05);
+  --ds-shadow-sm: 0 1px 3px rgba(11, 11, 15, 0.06), 0 1px 2px rgba(11, 11, 15, 0.04);
+  --ds-shadow-md: 0 4px 12px rgba(11, 11, 15, 0.07), 0 2px 4px rgba(11, 11, 15, 0.04);
+  --ds-shadow-lg: 0 12px 32px rgba(11, 11, 15, 0.09), 0 4px 10px rgba(11, 11, 15, 0.04);
+  --ds-shadow-xl: 0 24px 64px rgba(11, 11, 15, 0.13), 0 8px 20px rgba(11, 11, 15, 0.06);
+  --ds-ring: 0 0 0 3px rgba(40, 80, 232, 0.22);
+  --ds-focus: #2850e8;           /* focus outline colour */
+
+  /* --- Radii --- */
+  --ds-r-xs: 6px;
+  --ds-r-sm: 8px;
+  --ds-r-md: 10px;
+  --ds-r-lg: 14px;
+  --ds-r-xl: 18px;
+  --ds-r-2xl: 24px;
+
+  /* --- Motion --- */
+  --ds-dur-fast: 120ms;          /* hovers, presses */
+  --ds-dur: 180ms;               /* menus, tabs, toasts */
+  --ds-dur-slow: 280ms;          /* modals, drawers, theme swap */
+  --ds-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ds-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* --- Layers --- */
+  --ds-z-sticky: 20;
+  --ds-z-sidebar: 30;
+  --ds-z-popover: 60;
+  --ds-z-modal: 70;
+  --ds-z-toast: 80;
+  --ds-z-tooltip: 90;
+
+  color-scheme: light;
+}
+
+/* --- Dark: explicit choice --- */
+:root[data-theme="dark"],
+:root.dark {
+  --ds-canvas: #08080a;
+  --ds-canvas-alt: #0d0d10;
+  --ds-surface: #101013;
+  --ds-surface-2: #17171b;
+  --ds-surface-3: #202026;
+  --ds-overlay: rgba(0, 0, 0, 0.66);
+
+  --ds-ink: #f5f5f3;
+  --ds-ink-2: #b4b4bc;
+  --ds-ink-3: #8b8b95;
+  --ds-ink-inv: #0b0b0f;
+
+  --ds-line: #232329;
+  --ds-line-2: #2f2f37;
+  --ds-line-3: #43434d;
+
+  --ds-accent: #6084ff;
+  --ds-accent-hover: #7a99ff;
+  --ds-accent-ink: #06070f;
+  --ds-accent-soft: #141a30;
+  --ds-accent-line: #2b3766;
+
+  --ds-invert: #131317;
+  --ds-invert-2: #26262e;
+  --ds-invert-ink: #f5f5f3;
+  --ds-invert-ink-2: rgba(245, 245, 243, 0.7);
+
+  --ds-bubble-out: #2f4bd8;
+  --ds-bubble-out-ink: #ffffff;
+
+  --ds-success: #34d9a7;
+  --ds-success-soft: #0c1f1a;
+  --ds-success-line: #1d453a;
+
+  --ds-warn: #e5a742;
+  --ds-warn-soft: #221a0c;
+  --ds-warn-line: #4a3717;
+
+  --ds-danger: #ff6b86;
+  --ds-danger-soft: #240f16;
+  --ds-danger-line: #4d222e;
+
+  --ds-info: #6084ff;
+  --ds-info-soft: #141a30;
+
+  --ds-glass-bg: rgba(16, 16, 19, 0.92);
+  --ds-glass-border: rgba(255, 255, 255, 0.08);
+
+  --ds-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --ds-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ds-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55), 0 2px 5px rgba(0, 0, 0, 0.4);
+  --ds-shadow-lg: 0 14px 38px rgba(0, 0, 0, 0.6), 0 5px 12px rgba(0, 0, 0, 0.45);
+  --ds-shadow-xl: 0 28px 72px rgba(0, 0, 0, 0.7), 0 10px 24px rgba(0, 0, 0, 0.5);
+  --ds-ring: 0 0 0 3px rgba(96, 132, 255, 0.3);
+  --ds-focus: #7a99ff;
+
+  color-scheme: dark;
+}
+
+/* --- Dark: system default (no explicit choice stored). Must stay identical
+   to the block above; tokens.test.ts checks that. --- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ds-canvas: #08080a;
+    --ds-canvas-alt: #0d0d10;
+    --ds-surface: #101013;
+    --ds-surface-2: #17171b;
+    --ds-surface-3: #202026;
+    --ds-overlay: rgba(0, 0, 0, 0.66);
+
+    --ds-ink: #f5f5f3;
+    --ds-ink-2: #b4b4bc;
+    --ds-ink-3: #8b8b95;
+    --ds-ink-inv: #0b0b0f;
+
+    --ds-line: #232329;
+    --ds-line-2: #2f2f37;
+    --ds-line-3: #43434d;
+
+    --ds-accent: #6084ff;
+    --ds-accent-hover: #7a99ff;
+    --ds-accent-ink: #06070f;
+    --ds-accent-soft: #141a30;
+    --ds-accent-line: #2b3766;
+
+    --ds-invert: #131317;
+    --ds-invert-2: #26262e;
+    --ds-invert-ink: #f5f5f3;
+    --ds-invert-ink-2: rgba(245, 245, 243, 0.7);
+
+    --ds-bubble-out: #2f4bd8;
+    --ds-bubble-out-ink: #ffffff;
+
+    --ds-success: #34d9a7;
+    --ds-success-soft: #0c1f1a;
+    --ds-success-line: #1d453a;
+
+    --ds-warn: #e5a742;
+    --ds-warn-soft: #221a0c;
+    --ds-warn-line: #4a3717;
+
+    --ds-danger: #ff6b86;
+    --ds-danger-soft: #240f16;
+    --ds-danger-line: #4d222e;
+
+    --ds-info: #6084ff;
+    --ds-info-soft: #141a30;
+
+    --ds-glass-bg: rgba(16, 16, 19, 0.92);
+    --ds-glass-border: rgba(255, 255, 255, 0.08);
+
+    --ds-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --ds-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.4);
+    --ds-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55), 0 2px 5px rgba(0, 0, 0, 0.4);
+    --ds-shadow-lg: 0 14px 38px rgba(0, 0, 0, 0.6), 0 5px 12px rgba(0, 0, 0, 0.45);
+    --ds-shadow-xl: 0 28px 72px rgba(0, 0, 0, 0.7), 0 10px 24px rgba(0, 0, 0, 0.5);
+    --ds-ring: 0 0 0 3px rgba(96, 132, 255, 0.3);
+    --ds-focus: #7a99ff;
+
+    color-scheme: dark;
+  }
+}
+
+/* ==========================================================================
+   Tailwind token bridge — `bg-surface`, `text-ink-2`, `border-line`, etc.
+   `inline` keeps them referencing the live variables so theme swaps are free.
+   ========================================================================== */
+
+@theme inline {
+  --color-canvas: var(--ds-canvas);
+  --color-canvas-alt: var(--ds-canvas-alt);
+  --color-surface: var(--ds-surface);
+  --color-surface-2: var(--ds-surface-2);
+  --color-surface-3: var(--ds-surface-3);
+  --color-overlay: var(--ds-overlay);
+
+  --color-ink: var(--ds-ink);
+  --color-ink-2: var(--ds-ink-2);
+  --color-ink-3: var(--ds-ink-3);
+  --color-ink-inv: var(--ds-ink-inv);
+
+  --color-line: var(--ds-line);
+  --color-line-2: var(--ds-line-2);
+  --color-line-3: var(--ds-line-3);
+
+  --color-primary: var(--ds-primary);
+  --color-primary-hover: var(--ds-primary-hover);
+  --color-primary-ink: var(--ds-primary-ink);
+
+  --color-accent: var(--ds-accent);
+  --color-accent-hover: var(--ds-accent-hover);
+  --color-accent-ink: var(--ds-accent-ink);
+  --color-accent-soft: var(--ds-accent-soft);
+  --color-accent-line: var(--ds-accent-line);
+
+  --color-invert: var(--ds-invert);
+  --color-invert-2: var(--ds-invert-2);
+  --color-invert-ink: var(--ds-invert-ink);
+  --color-invert-ink-2: var(--ds-invert-ink-2);
+
+  --color-bubble-out: var(--ds-bubble-out);
+  --color-bubble-out-ink: var(--ds-bubble-out-ink);
+
+  --color-success: var(--ds-success);
+  --color-success-soft: var(--ds-success-soft);
+  --color-success-line: var(--ds-success-line);
+  --color-warn: var(--ds-warn);
+  --color-warn-soft: var(--ds-warn-soft);
+  --color-warn-line: var(--ds-warn-line);
+  --color-danger: var(--ds-danger);
+  --color-danger-soft: var(--ds-danger-soft);
+  --color-danger-line: var(--ds-danger-line);
+  --color-info: var(--ds-info);
+  --color-info-soft: var(--ds-info-soft);
+
+  --radius-xs: var(--ds-r-xs);
+  --radius-sm: var(--ds-r-sm);
+  --radius-md: var(--ds-r-md);
+  --radius-lg: var(--ds-r-lg);
+  --radius-xl: var(--ds-r-xl);
+  --radius-2xl: var(--ds-r-2xl);
+
+  --shadow-xs: var(--ds-shadow-xs);
+  --shadow-sm: var(--ds-shadow-sm);
+  --shadow-md: var(--ds-shadow-md);
+  --shadow-lg: var(--ds-shadow-lg);
+  --shadow-xl: var(--ds-shadow-xl);
+
+  /* Type scale. Tailwind's xs/sm/base/lg/xl… stay; 2xs, ui and md fill the
+     gaps a dense support UI needs. Never use text-[Npx]. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-ui: 0.8125rem;
+  --text-ui--line-height: 1.25rem;
+  --text-md: 0.9375rem;
+  --text-md--line-height: 1.5rem;
+
+  --ease-ds: var(--ds-ease);
+  --ease-ds-out: var(--ds-ease-out);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    Consolas, monospace;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--ds-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--ds-canvas);
+    color: var(--ds-ink);
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+      "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    transition: background-color 0.28s var(--ds-ease), color 0.28s var(--ds-ease);
+  }
+
+  /* Display type: tight tracking is what reads as "expensive" */
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.022em;
+    color: var(--ds-ink);
+    text-wrap: balance;
+  }
+
+  h1 {
+    letter-spacing: -0.035em;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: var(--ds-accent);
+    color: var(--ds-accent-ink);
+  }
+
+  /* An outline, not a box-shadow: shadow utilities on the element would
+     silently replace a shadow ring, and outlines survive forced-colours mode. */
+  :focus-visible {
+    outline: 2px solid var(--ds-focus);
+    outline-offset: 2px;
+  }
+
+  /* Inputs show focus with their border + ring instead (see .input). */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [contenteditable]:focus-visible {
+    outline: none;
+    box-shadow: var(--ds-ring);
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--ds-ink-3);
+  }
+}
+
+/* ==========================================================================
+   Scrollbars — thin, invisible until you need them
+   ========================================================================== */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--ds-line-3);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ds-ink-3);
+  background-clip: content-box;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ==========================================================================
+   Component primitives
+   ========================================================================== */
+
+@layer components {
+  /* ---- Buttons ---- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.5rem;
+    padding: 0 1rem;
+    border-radius: var(--ds-r-md);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: -0.008em;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid transparent;
+    transition: background-color var(--ds-dur-fast) var(--ds-ease),
+      border-color var(--ds-dur-fast) var(--ds-ease), color var(--ds-dur-fast) var(--ds-ease),
+      box-shadow var(--ds-dur-fast) var(--ds-ease), transform var(--ds-dur-fast) var(--ds-ease);
+  }
+
+  .btn:active:not(:disabled) {
+    transform: translateY(0.5px) scale(0.988);
+  }
+
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn-lg {
+    height: 3rem;
+    padding: 0 1.5rem;
+    font-size: 0.9375rem;
+    border-radius: var(--ds-r-lg);
+  }
+
+  .btn-sm {
+    height: 2rem;
+    padding: 0 0.75rem;
+    font-size: 0.75rem;
+    border-radius: var(--ds-r-sm);
+  }
+
+  .btn-xs {
+    height: 1.625rem;
+    padding: 0 0.5rem;
+    gap: 0.3rem;
+    font-size: 0.6875rem;
+    border-radius: var(--ds-r-xs);
+  }
+
+  .btn-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border-radius: var(--ds-r-sm);
+  }
+
+  /* Primary and accent are the same button: there is one accent colour.
+     .btn-accent stays as an alias so older markup keeps working. */
+  .btn-primary,
+  .btn-accent {
+    background: var(--ds-primary);
+    color: var(--ds-primary-ink);
+    box-shadow: var(--ds-shadow-xs);
+  }
+  .btn-primary:hover:not(:disabled),
+  .btn-accent:hover:not(:disabled) {
+    background: var(--ds-primary-hover);
+  }
+
+  .btn-secondary {
+    background: var(--ds-surface);
+    color: var(--ds-ink);
+    border-color: var(--ds-line-2);
+    box-shadow: var(--ds-shadow-xs);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--ds-surface-2);
+    border-color: var(--ds-line-3);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--ds-ink-2);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--ds-surface-3);
+    color: var(--ds-ink);
+  }
+
+  .btn-danger {
+    background: var(--ds-danger-soft);
+    color: var(--ds-danger);
+    border-color: var(--ds-danger-line);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: var(--ds-danger);
+    color: var(--ds-surface);
+    border-color: var(--ds-danger);
+  }
+
+  /* ---- Surfaces ---- */
+  .card {
+    background: var(--ds-surface);
+    border: 1px solid var(--ds-line);
+    border-radius: var(--ds-r-lg);
+    box-shadow: var(--ds-shadow-xs);
+  }
+
+  .card-hover {
+    transition: border-color 0.2s var(--ds-ease), box-shadow 0.2s var(--ds-ease),
+      transform 0.2s var(--ds-ease);
+  }
+  .card-hover:hover {
+    border-color: var(--ds-line-3);
+    box-shadow: var(--ds-shadow-md);
+  }
+
+  .panel {
+    background: var(--ds-surface-2);
+    border: 1px solid var(--ds-line);
+    border-radius: var(--ds-r-md);
+  }
+
+  /* ---- Form controls ---- */
+  .field-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--ds-ink-2);
+    margin-bottom: 0.4rem;
+  }
+
+  .input {
+    width: 100%;
+    height: 2.75rem;
+    padding: 0 0.875rem;
+    background: var(--ds-surface);
+    border: 1px solid var(--ds-line-2);
+    border-radius: var(--ds-r-md);
+    color: var(--ds-ink);
+    font-size: 0.875rem;
+    transition: border-color 0.16s var(--ds-ease), box-shadow 0.16s var(--ds-ease),
+      background-color 0.16s var(--ds-ease);
+  }
+
+  .input:hover:not(:focus) {
+    border-color: var(--ds-line-3);
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: var(--ds-accent);
+    box-shadow: var(--ds-ring);
+  }
+
+  .input-sm {
+    height: 2.25rem;
+    font-size: 0.8125rem;
+    border-radius: var(--ds-r-sm);
+  }
+
+  .select {
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 15px) center, calc(100% - 10px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    padding-right: 2rem;
+    cursor: pointer;
+  }
+
+  /* ---- Pills / badges ---- */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    height: 1.375rem;
+    padding: 0 0.5rem;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.002em;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .pill-neutral {
+    background: var(--ds-surface-3);
+    color: var(--ds-ink-2);
+    border-color: var(--ds-line);
+  }
+  .pill-accent {
+    background: var(--ds-accent-soft);
+    color: var(--ds-accent);
+    border-color: var(--ds-accent-line);
+  }
+  .pill-success {
+    background: var(--ds-success-soft);
+    color: var(--ds-success);
+    border-color: var(--ds-success-line);
+  }
+  .pill-warn {
+    background: var(--ds-warn-soft);
+    color: var(--ds-warn);
+    border-color: var(--ds-warn-line);
+  }
+  .pill-danger {
+    background: var(--ds-danger-soft);
+    color: var(--ds-danger);
+    border-color: var(--ds-danger-line);
+  }
+
+  /* ---- Misc ---- */
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ds-ink-3);
+  }
+
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.35rem;
+    margin-inline: 0.05rem;
+    white-space: nowrap;
+    border-radius: 5px;
+    background: var(--ds-surface-2);
+    border: 1px solid var(--ds-line-2);
+    border-bottom-width: 2px;
+    font-family: var(--font-geist-mono), monospace;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: var(--ds-ink-2);
+  }
+
+  .code-block {
+    background: var(--ds-invert);
+    color: var(--ds-invert-ink);
+    border: 1px solid var(--ds-line-2);
+    border-radius: var(--ds-r-md);
+    padding: 1rem 1.125rem;
+    font-family: var(--font-geist-mono), monospace;
+    font-size: 0.75rem;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+
+  .textarea {
+    height: auto;
+    min-height: 5.5rem;
+    padding: 0.625rem 0.875rem;
+    line-height: 1.5;
+    resize: vertical;
+  }
+
+  .input[aria-invalid="true"] {
+    border-color: var(--ds-danger);
+  }
+
+  .pill-info {
+    background: var(--ds-info-soft);
+    color: var(--ds-info);
+    border-color: var(--ds-accent-line);
+  }
+
+  /* ---- Tables ---- */
+  .table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.8125rem;
+  }
+  .table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--ds-surface-2);
+    color: var(--ds-ink-3);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--ds-line);
+    white-space: nowrap;
+  }
+  .table td {
+    padding: 0.625rem 0.75rem;
+    border-bottom: 1px solid var(--ds-line);
+    color: var(--ds-ink);
+    vertical-align: middle;
+  }
+  .table tbody tr {
+    transition: background-color var(--ds-dur-fast) var(--ds-ease);
+  }
+  .table tbody tr:hover {
+    background: var(--ds-surface-2);
+  }
+  .table tbody tr[aria-selected="true"] {
+    background: var(--ds-accent-soft);
+  }
+
+  /* ---- Tabs ---- */
+  .tabs {
+    display: flex;
+    gap: 0.25rem;
+    border-bottom: 1px solid var(--ds-line);
+  }
+  .tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--ds-ink-2);
+    border-radius: var(--ds-r-sm) var(--ds-r-sm) 0 0;
+    transition: color var(--ds-dur-fast) var(--ds-ease);
+  }
+  .tab:hover {
+    color: var(--ds-ink);
+  }
+  .tab[aria-selected="true"] {
+    color: var(--ds-ink);
+    font-weight: 600;
+  }
+  .tab[aria-selected="true"]::after {
+    content: "";
+    position: absolute;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--ds-accent);
+  }
+  .tabs-pill {
+    display: inline-flex;
+    gap: 0.125rem;
+    padding: 0.1875rem;
+    border-radius: var(--ds-r-md);
+    background: var(--ds-surface-3);
+  }
+  .tabs-pill .tab {
+    height: 1.875rem;
+    border-radius: var(--ds-r-sm);
+  }
+  .tabs-pill .tab[aria-selected="true"] {
+    background: var(--ds-surface);
+    box-shadow: var(--ds-shadow-xs);
+  }
+  .tabs-pill .tab[aria-selected="true"]::after {
+    display: none;
+  }
+
+  /* ---- Tooltip ---- */
+  .tooltip {
+    pointer-events: none;
+    max-width: 16rem;
+    padding: 0.3125rem 0.5rem;
+    border-radius: var(--ds-r-xs);
+    background: var(--ds-invert);
+    color: var(--ds-invert-ink);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.35;
+    box-shadow: var(--ds-shadow-md);
+    animation: ds-fade var(--ds-dur) var(--ds-ease) both;
+  }
+
+  /* ---- Popover / modal surfaces (glass allowed) ---- */
+  .popover {
+    background: var(--ds-glass-bg);
+    border: 1px solid var(--ds-glass-border);
+    border-radius: var(--ds-r-lg);
+    box-shadow: var(--ds-shadow-lg);
+    /* Prefixed first: Lightning CSS keeps only the last of the pair, and
+       Chromium ignores the -webkit- form. */
+    -webkit-backdrop-filter: saturate(160%) blur(var(--ds-glass-blur));
+    backdrop-filter: saturate(160%) blur(var(--ds-glass-blur));
+  }
+
+  /* Fine hairline separator that reads as engraved rather than drawn */
+  .hairline {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--ds-line-2) 12%,
+      var(--ds-line-2) 88%,
+      transparent
+    );
+  }
+}
+
+/* ==========================================================================
+   Utilities & motion
+   ========================================================================== */
+
+@layer utilities {
+  /* Scrolls, but without a visible bar (toolbars that overflow on narrow panes). */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .u-container {
+    width: 100%;
+    max-width: 1200px;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+
+  /* Subtle glass. Allowed on three things only: the app sidebar, modals and
+     popovers, and the customer chat widget. Everything else is flat. */
+  .glass {
+    background: var(--ds-glass-bg);
+    border-color: var(--ds-glass-border);
+    /* Prefixed first: Lightning CSS keeps only the last of the pair, and
+       Chromium ignores the -webkit- form. */
+    -webkit-backdrop-filter: saturate(160%) blur(var(--ds-glass-blur));
+    backdrop-filter: saturate(160%) blur(var(--ds-glass-blur));
+  }
+
+  /* Text that exists only for screen readers. */
+  .sr-only-focusable:not(:focus) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .text-gradient {
+    background: linear-gradient(
+      100deg,
+      var(--ds-ink) 0%,
+      var(--ds-ink) 40%,
+      var(--ds-accent) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Ambient light behind the hero — subtle, never a "glow blob" */
+  .aurora::before {
+    content: "";
+    position: absolute;
+    inset: -20% -10% auto -10%;
+    height: 620px;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        50% 55% at 22% 0%,
+        color-mix(in srgb, var(--ds-accent) 12%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        44% 50% at 78% 8%,
+        color-mix(in srgb, var(--ds-accent) 8%, transparent),
+        transparent 72%
+      );
+    filter: blur(10px);
+  }
+
+  .grid-lines {
+    background-image: linear-gradient(
+        to right,
+        color-mix(in srgb, var(--ds-line) 60%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in srgb, var(--ds-line) 60%, transparent) 1px,
+        transparent 1px
+      );
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
+    -webkit-mask-image: radial-gradient(
+      ellipse 80% 60% at 50% 0%,
+      #000 20%,
+      transparent 75%
+    );
+  }
+}
+
+@keyframes ds-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ds-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ds-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.94) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ds-ping-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  75%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes ds-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes ds-bounce-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.42;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes ds-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes ds-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ds-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ds-radar-sweep {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ds-pulse-glow {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes ds-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes ds-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-drawer {
+  animation: ds-slide-in-right var(--ds-dur-slow) var(--ds-ease-out) both;
+}
+.animate-toast {
+  animation: ds-slide-up var(--ds-dur) var(--ds-ease-out) both;
+}
+
+.animate-rise {
+  animation: ds-rise 0.55s var(--ds-ease-out) both;
+}
+.animate-fade {
+  animation: ds-fade 0.4s var(--ds-ease) both;
+}
+.animate-pop {
+  animation: ds-pop 0.28s var(--ds-spring) both;
+}
+.animate-breathe {
+  animation: ds-breathe 2.4s var(--ds-ease) infinite;
+}
+.animate-spin-slow {
+  animation: ds-spin 1s linear infinite;
+}
+.animate-radar {
+  animation: ds-radar-sweep 4s linear infinite;
+}
+.animate-glow {
+  animation: ds-pulse-glow 2.5s var(--ds-ease) infinite;
+}
+
+.delay-1 { animation-delay: 0.06s; }
+.delay-2 { animation-delay: 0.12s; }
+.delay-3 { animation-delay: 0.18s; }
+.delay-4 { animation-delay: 0.24s; }
+.delay-5 { animation-delay: 0.3s; }
+.delay-6 { animation-delay: 0.36s; }
+
+/* Live "presence" dot with an expanding ring */
+.live-dot {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ds-success);
+  flex-shrink: 0;
+}
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--ds-success);
+  animation: ds-ping-ring 2s var(--ds-ease-out) infinite;
+}
+
+/* Typing indicator */
+.typing-dots span {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: ds-bounce-dot 1.3s infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.16s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.32s; }
+
+/* Skeleton shimmer */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--ds-surface-3);
+  border-radius: var(--ds-r-sm);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--ds-surface) 70%, transparent),
+    transparent
+  );
+  animation: ds-shimmer 1.6s infinite;
+}
+
+.marquee-track {
+  animation: ds-marquee 34s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
