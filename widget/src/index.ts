@@ -3985,6 +3985,50 @@ class ZentryWidget {
         font-weight: 600;
       }
 
+      /* ── Quick Reply Chips ──────────────────────────────────────────── */
+
+      .chatify-quick-replies {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        padding: 2px 0 8px;
+        max-width: 82%;
+        /* Left-aligned like agent bubbles */
+        margin-right: auto;
+        animation: w-bubble-in .25s var(--w-ease-out) both;
+      }
+
+      .chatify-qr-btn {
+        padding: 6px 13px;
+        border: 1.5px solid var(--w-brand);
+        border-radius: 999px;
+        background: var(--w-surface);
+        color: var(--w-brand);
+        font-size: 12.5px;
+        font-weight: 500;
+        line-height: 1.4;
+        cursor: pointer;
+        white-space: nowrap;
+        transition:
+          background 0.14s ease,
+          color 0.14s ease,
+          transform 0.12s ease,
+          box-shadow 0.14s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      }
+
+      .chatify-qr-btn:hover {
+        background: var(--w-brand);
+        color: var(--w-on-brand);
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px var(--w-brand-a28);
+      }
+
+      .chatify-qr-btn:active {
+        transform: translateY(0);
+        opacity: 0.88;
+      }
+
       .chatify-typing {
         display: inline-flex !important;
         align-items: center;
@@ -5779,6 +5823,144 @@ class ZentryWidget {
         to   { opacity: 1; transform: none; }
       }
 
+      /* ── Handover Card & Agent Sender ─────────────────────────────── */
+      .chatify-handover-card {
+        margin: 10px 0;
+        padding: 12px 14px;
+        background: var(--w-surface);
+        border: 1px solid var(--w-line);
+        border-radius: var(--w-r-md);
+        box-shadow: 0 2px 8px rgba(11, 11, 15, 0.05);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        animation: w-rise .3s var(--w-ease) both;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .chatify-handover-card.connecting {
+        border-left: 3.5px solid var(--w-brand);
+        background: linear-gradient(to right, var(--w-brand-a08), var(--w-surface));
+      }
+
+      .chatify-handover-card.connected {
+        border-left: 3.5px solid #10b981;
+        background: linear-gradient(to right, rgba(16, 185, 129, 0.08), var(--w-surface));
+      }
+
+      .chatify-handover-avatar-wrap {
+        position: relative;
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+      }
+
+      .chatify-handover-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: var(--w-brand);
+        color: var(--w-on-brand);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        overflow: hidden;
+      }
+
+      .chatify-handover-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .chatify-handover-spinner {
+        width: 38px;
+        height: 38px;
+        border: 2.5px solid var(--w-brand-a28);
+        border-top-color: var(--w-brand);
+        border-radius: 50%;
+        animation: chatifySpin 0.9s linear infinite;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .chatify-handover-spinner-inner {
+        font-size: 16px;
+      }
+
+      .chatify-handover-badge {
+        position: absolute;
+        bottom: -1px;
+        right: -1px;
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        border: 2px solid var(--w-surface);
+        background: #10b981;
+      }
+
+      .chatify-handover-content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .chatify-handover-title-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .chatify-handover-title {
+        font-size: 13px;
+        font-weight: 650;
+        color: var(--w-ink);
+        letter-spacing: -0.01em;
+      }
+
+      .chatify-handover-tag {
+        font-size: 9.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 1.5px 6px;
+        border-radius: 999px;
+        background: rgba(16, 185, 129, 0.14);
+        color: #047857;
+      }
+
+      .chatify-handover-sub {
+        margin-top: 2px;
+        font-size: 11.5px;
+        color: var(--w-ink-2);
+        line-height: 1.35;
+      }
+
+      .chatify-agent-sender-name {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--w-ink-2);
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .chatify-agent-sender-name .chatify-human-tag {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--w-brand-a08);
+        color: var(--w-brand);
+      }
+
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after {
           animation-duration: .01ms !important;
@@ -6093,15 +6275,92 @@ class ZentryWidget {
       // Security: never render internal notes to visitor!
       if (msg.is_internal) return;
 
-      // System event: the bot handed this over to the team.
-      if ((msg as any).metadata?.system_event === 'handover') {
-        const line = document.createElement('div');
-        line.className = 'chatify-system-line';
+      // System event / Handover: the bot handed this over to the team.
+      const isHandover =
+        (msg as any).metadata?.system_event === 'handover' ||
+        (msg as any).metadata?.system_event?.type === 'handover' ||
+        Boolean((msg as any).metadata?.handover);
+
+      if (isHandover) {
+        // If there's AI explanation content, render the AI bubble first so visitor sees it.
+        if (msg.content && msg.content !== "We've passed this to our team.") {
+          const row = document.createElement('div');
+          row.className = 'chatify-message-row';
+          const bubble = document.createElement('div');
+          bubble.className = 'chatify-msg-agent';
+          const timeStr = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          bubble.innerHTML =
+            `<div class="chatify-msg-text chatify-msg-rich">${this.formatChatMarkdown(msg.content)}</div>` +
+            `<div class="chatify-msg-time">${timeStr}</div>`;
+          row.appendChild(bubble);
+          stage.appendChild(row);
+        }
+
+        // Render the professional animated Handover Card
+        const agentName =
+          (msg as any).metadata?.assigned_agent_name ||
+          ((msg as any).metadata?.assigned_agent_id
+            ? this.workspaceAgents.find((a: any) => a.id === (msg as any).metadata?.assigned_agent_id)?.name
+            : null) ||
+          'Support Specialist';
+        const agentAvatar =
+          (msg as any).metadata?.assigned_agent_avatar ||
+          ((msg as any).metadata?.assigned_agent_id
+            ? this.workspaceAgents.find((a: any) => a.id === (msg as any).metadata?.assigned_agent_id)?.avatar_url
+            : null);
+        const agentInitials = this.getSenderInitials(agentName);
         const email = (this.visitorEmail || '').trim();
-        line.innerHTML =
-          this.escapeHTML("We've passed this to our team. We usually reply within 10–15 minutes.") +
-          (email ? ' ' + this.escapeHTML(`We'll also email you at ${email}.`) : '');
-        stage.appendChild(line);
+        const followUpText = email ? ` We'll also email you at ${this.escapeHTML(email)}.` : '';
+
+        const card = document.createElement('div');
+        card.setAttribute('data-handover-msg-id', msg.id);
+
+        const ageMs = Date.now() - new Date(msg.created_at).getTime();
+        const shouldAnimateConnecting = ageMs < 6000;
+
+        const renderConnectedContent = () => {
+          card.className = 'chatify-handover-card connected';
+          const avatarHtml = agentAvatar
+            ? `<img src="${this.safeUrl(agentAvatar, true)}" alt="${this.escapeHTML(agentName)}" />`
+            : this.escapeHTML(agentInitials);
+          card.innerHTML = `
+            <div class="chatify-handover-avatar-wrap">
+              <div class="chatify-handover-avatar">${avatarHtml}</div>
+              <span class="chatify-handover-badge" title="Online"></span>
+            </div>
+            <div class="chatify-handover-content">
+              <div class="chatify-handover-title-row">
+                <span class="chatify-handover-title">Connected with ${this.escapeHTML(agentName)}</span>
+                <span class="chatify-handover-tag">Human Agent</span>
+              </div>
+              <p class="chatify-handover-sub">Our team usually replies in a few minutes.${followUpText}</p>
+            </div>
+          `;
+        };
+
+        if (shouldAnimateConnecting) {
+          card.className = 'chatify-handover-card connecting';
+          card.innerHTML = `
+            <div class="chatify-handover-avatar-wrap">
+              <div class="chatify-handover-spinner">
+                <span class="chatify-handover-spinner-inner">🧑‍💼</span>
+              </div>
+            </div>
+            <div class="chatify-handover-content">
+              <div class="chatify-handover-title-row">
+                <span class="chatify-handover-title">Connecting to ${this.escapeHTML(agentName)}...</span>
+              </div>
+              <p class="chatify-handover-sub">Transferring conversation to an available human support agent...</p>
+            </div>
+          `;
+          setTimeout(() => {
+            renderConnectedContent();
+          }, 2400);
+        } else {
+          renderConnectedContent();
+        }
+
+        stage.appendChild(card);
         return;
       }
 
@@ -6122,6 +6381,19 @@ class ZentryWidget {
 
       const bubble = document.createElement('div');
       bubble.className = isVisitor ? 'chatify-msg-visitor' : 'chatify-msg-agent';
+
+      // Agent sender name badge
+      let senderTagHtml = '';
+      if (!isVisitor && msg.sender_type === 'agent' && !(msg as any).metadata?.is_welcome) {
+        const agentSenderName =
+          (msg as any).metadata?.sender_name ||
+          (msg.sender_id ? this.workspaceAgents.find((a: any) => a.id === msg.sender_id)?.name : null) ||
+          (msg as any).metadata?.assigned_agent_name;
+        if (agentSenderName) {
+          senderTagHtml = `<div class="chatify-agent-sender-name"><span>${this.escapeHTML(agentSenderName)}</span><span class="chatify-human-tag">Agent</span></div>`;
+        }
+      }
+
       // Kept on one line: the text element preserves whitespace, so any
       // indentation in this template would be rendered as blank lines.
       // Ticks only on the visitor's own messages: a receipt for something the
@@ -6168,6 +6440,7 @@ class ZentryWidget {
           : msg.content;
 
       bubble.innerHTML =
+        senderTagHtml +
         quoteHtml +
         attachmentHtml +
         (displayContent
@@ -6186,6 +6459,41 @@ class ZentryWidget {
 
       row.appendChild(bubble);
       stage.appendChild(row);
+
+      // Quick reply chips — shown below AI/agent bubbles when the message
+      // carries them, and only until the visitor has replied (they disappear
+      // automatically once the user sends anything after this message).
+      if (!isVisitor) {
+        const quickReplies = (msg.metadata?.quick_replies as Array<{ label: string; value?: string }> | null | undefined);
+        if (quickReplies && quickReplies.length > 0) {
+          // Hide chips once the visitor has sent any message after this one.
+          const hasVisitorReplyAfter = this.messages.some(
+            (m) => m.sender_type === 'visitor' && !m.pending && m.created_at > msg.created_at
+          );
+          if (!hasVisitorReplyAfter) {
+            const chipsRow = document.createElement('div');
+            chipsRow.className = 'chatify-quick-replies';
+            quickReplies.slice(0, 4).forEach((qr) => {
+              const btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'chatify-qr-btn';
+              btn.textContent = qr.label;
+              btn.addEventListener('click', () => {
+                // Clear the textarea and send — gives the natural feel of
+                // the visitor having chosen an option.
+                const textarea = this.shadow?.getElementById('chatifyTextarea') as HTMLTextAreaElement | null;
+                if (textarea) {
+                  textarea.value = '';
+                  this.adjustTextareaHeight();
+                }
+                this.sendMessage(qr.value || qr.label);
+              });
+              chipsRow.appendChild(btn);
+            });
+            stage.appendChild(chipsRow);
+          }
+        }
+      }
     });
 
     const isClosed = this.conversationStatus === 'closed';
@@ -6266,6 +6574,41 @@ class ZentryWidget {
       typingRow.innerHTML =
         '<div class="chatify-msg-agent chatify-typing" aria-label="Typing"><span></span><span></span><span></span></div>';
       stage.appendChild(typingRow);
+    }
+
+    // Dynamically update Messages tab header to reflect the assigned human agent
+    let assignedHeaderAgent: { name: string; avatar?: string | null } | null = null;
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      const m = this.messages[i];
+      if ((m as any).metadata?.assigned_agent_name) {
+        assignedHeaderAgent = {
+          name: (m as any).metadata.assigned_agent_name,
+          avatar: (m as any).metadata.assigned_agent_avatar || null,
+        };
+        break;
+      }
+      if (m.sender_type === 'agent' && !(m as any).metadata?.is_welcome) {
+        const name =
+          (m as any).metadata?.sender_name ||
+          (m.sender_id ? this.workspaceAgents.find((a: any) => a.id === m.sender_id)?.name : null);
+        if (name) {
+          assignedHeaderAgent = { name, avatar: null };
+          break;
+        }
+      }
+    }
+    if (assignedHeaderAgent) {
+      const titleEl = this.shadow?.getElementById('chatifyHeaderTitle');
+      const subEl = this.shadow?.getElementById('chatifyHeaderSubtitle');
+      const avatarEl = this.shadow?.getElementById('chatifyHeaderAvatar');
+      if (titleEl) titleEl.textContent = assignedHeaderAgent.name;
+      if (subEl) subEl.textContent = 'Support Specialist · Online';
+      if (avatarEl && assignedHeaderAgent.avatar) {
+        const safeAvatar = this.safeUrl(assignedHeaderAgent.avatar, true);
+        if (safeAvatar) {
+          avatarEl.innerHTML = `<img src="${safeAvatar}" alt="${this.escapeHTML(assignedHeaderAgent.name)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
+        }
+      }
     }
 
     this.commitMessages(body, stage);

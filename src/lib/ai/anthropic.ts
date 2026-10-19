@@ -62,6 +62,7 @@ import { prepareTraderLookup, type LookupStep } from './trader-data/lookup';
 import { understandMessage } from './understanding';
 import { assistRoute } from './router-assist';
 import { withoutImageNote } from './vision';
+import { tokenize } from './retrieval';
 import { logAiEvent } from './bot-control';
 import { pickPolicyArm, POLICY_ARMS, type PolicyArm } from './learning/policy';
 import { generateEmbeddings } from './semantic-retrieval';
@@ -232,6 +233,13 @@ export interface HelpDeskResponseResult {
   subAgent?: SubAgentId;
   /** Served from the answer cache: no retrieval decision was made. */
   cached?: boolean;
+  /**
+   * Short option chips shown below the bot's reply in the widget. Each chip
+   * sends its value (or label when value is absent) as the visitor's next
+   * message when clicked. Shown only until the visitor replies; disappear
+   * after that automatically. Max 4 items; labels kept under 40 chars.
+   */
+  quickReplies?: Array<{ label: string; value?: string }> | null;
 }
 
 /* ── Help-centre answers ──────────────────────────────────────────────── */
@@ -840,6 +848,51 @@ export function articleBlock(knowledgeText: string, n: number): string {
   return knowledgeText.slice(start, next < 0 ? undefined : next).trim();
 }
 
+/** Room Jev is given (jevGrounding keeps 6,000 characters of passages). */
+const JEV_PASSAGE_CHARS = 6_000;
+
+/**
+ * What Jev checks an agent-mode reply against. The model reads the whole
+ * help centre and cites one article, but a reply often joins several (the
+ * price from the pricing table, the rules from another); checked against the
+ * cited article alone, a correct "Instant 5K is $24" was blocked (supported
+ * 0.02) and the visitor got "I couldn't find the answer". So the cited
+ * article comes first, then every article holding one of the reply's figures
+ * ($24, 5K, 80%), then the articles closest in wording to the reply (a rule
+ * stated without numbers), within Jev's budget.
+ */
+export function groundingPassages(knowledgeText: string, sourceIndex: number, reply: string): string {
+  const blocks = knowledgeText.split(/(?=\[ARTICLE \d+\])/).map((b) => b.replace(/\n*---\s*$/, '').trim()).filter(Boolean);
+  const cited = articleBlock(knowledgeText, sourceIndex).replace(/\n*---\s*$/, '').trim();
+  const figures = [...new Set((reply.match(/\$?\d[\d,]*(?:\.\d+)?\s*(?:%|k\b|K\b)?/g) || []).map((f) => f.replace(/[\s,]/g, '').toLowerCase()))].filter((f) => f.length >= 2);
+  const norm = (s: string) => s.replace(/[\s,]/g, '').toLowerCase();
+  const withFigures = figures.length ? blocks.filter((b) => b !== cited && figures.some((f) => norm(b).includes(f))) : [];
+  // Wording: how many of the reply's distinct content words each article holds.
+  const replyTerms = new Set(tokenize(reply));
+  const byWording = replyTerms.size
+    ? blocks
+        .filter((b) => b !== cited && !withFigures.includes(b))
+        .map((b) => {
+          const terms = new Set(tokenize(b));
+          let shared = 0;
+          for (const t of replyTerms) if (terms.has(t)) shared += 1;
+          return { b, shared };
+        })
+        .filter((x) => x.shared >= Math.min(3, replyTerms.size))
+        .sort((x, y) => y.shared - x.shared)
+        .slice(0, 3)
+        .map((x) => x.b)
+    : [];
+  const out: string[] = [];
+  let used = 0;
+  for (const b of [cited, ...withFigures, ...byWording]) {
+    if (!b || used + b.length > JEV_PASSAGE_CHARS) continue;
+    out.push(b);
+    used += b.length;
+  }
+  return out.join('\n\n');
+}
+
 /** jevRejectsAnswer for an agent-mode reply; logged the same way, never blocks on a Jev failure. */
 async function jevRejectsAgentReply(input: SupportAgentInput, answer: string, passages: string): Promise<boolean> {
   return jevRejectsAnswer(
@@ -1009,10 +1062,39 @@ async function answerAsSupportAgent(input: SupportAgentInput): Promise<HelpDeskR
   // too long for it, the cited article is what the reply claims to rest on.
   // Live and below the bar: the strict path answers instead.
   if (input.jev && parsed.sourceIndex) {
-    const passages = [articleBlock(knowledge.text, parsed.sourceIndex), record?.text ?? ''].filter(Boolean).join('\n\n');
-    if (await jevRejectsAgentReply(input, parsed.text, passages)) {
-      console.warn('[Agent mode] Jev: the reply is not supported by its article, using the strict path.');
-      return null;
+    const passagesFor = (p: typeof parsed) =>
+      [groundingPassages(knowledge.text, p.sourceIndex ?? parsed.sourceIndex!, p.text), record?.text ?? ''].filter(Boolean).join('\n\n');
+    if (await jevRejectsAgentReply(input, parsed.text, passagesFor(parsed))) {
+      // One refusal is not the end: Jev sees only part of the help centre,
+      // and falling to the strict path turned correct answers into "I
+      // couldn't find this". The reply is written once more, held to the
+      // HELP CENTER's own words and citing the article the facts are in,
+      // and checked again (figures and Jev). Only a second refusal hands
+      // the question to the strict path.
+      const timeLeftForCheck = 26_000 - (Date.now() - startedAt);
+      let recovered = false;
+      if (timeLeftForCheck > 6_000) {
+        try {
+          const again = await draft(
+            `${baseSystem}\n\n# CORRECTION\nA checker could not match your previous draft to the article you cited. Write the reply again stating only what the HELP CENTER says, in its own terms and figures, and end with [SOURCE: n] for the article that states the main fact. If the HELP CENTER does not say it, say so.`,
+            timeLeftForCheck
+          );
+          if (again.ok && again.text) {
+            const second = parseAgentReply(again.text.trim());
+            const secondInvented = second.text ? unsupportedFigures(second.text, evidence) : ['(empty)'];
+            if (second.text && !secondInvented.length && !(second.sourceIndex && (await jevRejectsAgentReply(input, second.text, passagesFor(second))))) {
+              parsed = second;
+              recovered = true;
+            }
+          }
+        } catch (err) {
+          console.warn('[Agent mode] Rewrite after the Jev check failed:', (err as Error)?.message);
+        }
+      }
+      if (!recovered) {
+        console.warn('[Agent mode] Jev: the reply is not supported by the help center, using the strict path.');
+        return null;
+      }
     }
   }
 
@@ -1030,6 +1112,14 @@ async function answerAsSupportAgent(input: SupportAgentInput): Promise<HelpDeskR
     citedArticles: citation ? [{ id: citation.id, title: citation.title }] : [],
     usedArticleIds: articleIds,
     retrievalConfidence: source ? 'high' : 'medium',
+    // After answering a specific topic, offer a follow-up chip so the visitor
+    // can either ask another common question or escalate — no typing needed.
+    quickReplies: !parsed.handover
+      ? [
+          { label: '❓ Another question', value: 'I have another question.' },
+          { label: '🧑‍💼 Talk to a person', value: 'I want to speak with a team member.' },
+        ]
+      : null,
   };
   if (!parsed.handover) return base;
 
@@ -1451,6 +1541,17 @@ async function respondToVisitor({
         : greeting
         ? cannedGreeting || propFirmWelcome(lang, brand, name)
         : smallTalkReply(intent.smallTalkKind ?? 'greeting', lang, brand, name, null, incomingMessage);
+      // On a fresh greeting show topic chips so the visitor can jump to what they need
+      // without typing. Shown only on greetings, not on thanks/bye/other small talk.
+      const greetingQuickReplies: Array<{ label: string; value: string }> | null =
+        greeting && !ongoing
+          ? [
+              { label: '💰 Pricing & Plans', value: 'What are the challenge prices and account sizes?' },
+              { label: '📋 Trading Rules', value: 'What are the trading rules and drawdown limits?' },
+              { label: '💸 Payouts', value: 'How and when can I request a payout?' },
+              { label: '🧑‍💼 Talk to a person', value: 'I want to speak with a team member.' },
+            ]
+          : null;
       return {
         replyText: text,
         shouldHandover: false,
@@ -1459,6 +1560,7 @@ async function respondToVisitor({
         intentSource: intent.source,
         disableAi: false,
         subAgent: 'greeting',
+        quickReplies: greetingQuickReplies,
       };
     }
 
@@ -1511,6 +1613,15 @@ async function respondToVisitor({
         : cannedGreeting && greeting
         ? cannedGreeting
         : smallTalkReply(intent.smallTalkKind ?? 'greeting', lang, brand, name, null, incomingMessage);
+      const strictGreetingQuickReplies: Array<{ label: string; value: string }> | null =
+        greeting && !ongoing
+          ? [
+              { label: '💰 Pricing & Plans', value: 'What are the challenge prices and account sizes?' },
+              { label: '📋 Trading Rules', value: 'What are the trading rules and drawdown limits?' },
+              { label: '💸 Payouts', value: 'How and when can I request a payout?' },
+              { label: '🧑‍💼 Talk to a person', value: 'I want to speak with a team member.' },
+            ]
+          : null;
       return {
         replyText: text,
         shouldHandover: false,
@@ -1518,6 +1629,7 @@ async function respondToVisitor({
         intent: intent.intent,
         intentSource: intent.source,
         disableAi: false,
+        quickReplies: strictGreetingQuickReplies,
       };
     }
 
@@ -1739,7 +1851,37 @@ export async function executeHandoverToHuman({
         console.warn('[Auto-Assign Error during Handover]:', e);
       }
     }
-    const assignedTo = assignment?.assigned ? (assignment.agent ?? null) : null;
+    let assignedTo = assignment?.assigned ? (assignment.agent ?? null) : null;
+
+    // Fallback: if nobody is strictly online or on shift, assign the best active workspace agent
+    if (!assignedTo && !humanTookOver) {
+      try {
+        const { data: fallbackAgents } = await supabase
+          .from('agents')
+          .select('id, name, email, avatar_url, status, role, is_active')
+          .eq('workspace_id', workspaceId)
+          .neq('is_active', false)
+          .neq('role', 'light_agent');
+
+        if (fallbackAgents && fallbackAgents.length > 0) {
+          const rank = (s: string | null) => (s === 'online' ? 0 : s === 'away' ? 1 : 2);
+          const sorted = [...fallbackAgents].sort((a, b) => rank(a.status) - rank(b.status));
+          const chosen = sorted[0];
+          assignedTo = {
+            id: chosen.id,
+            name: chosen.name,
+            email: chosen.email,
+            avatar_url: chosen.avatar_url,
+          };
+          await supabase
+            .from('conversations')
+            .update({ assigned_agent_id: chosen.id, updated_at: now })
+            .eq('id', conversationId);
+        }
+      } catch (fbErr) {
+        console.warn('[Fallback Agent Selection Error]:', fbErr);
+      }
+    }
 
     // 3. Private note for the team: why the bot stepped aside and who has it.
     const who = assignedTo
@@ -1760,13 +1902,14 @@ export async function executeHandoverToHuman({
         priority,
         // Read by the dashboard to alert this person (everyone when null).
         assigned_agent_id: assignedTo?.id ?? null,
+        assigned_agent_name: assignedTo?.name ?? null,
       },
     });
 
     if (insertErr) {
       if ((insertErr as any).code === '23505') {
         console.log(`[executeHandoverToHuman] Handover note already exists for visitor message ${visitorMessageId} (unique violation). Skipping.`);
-        return;
+        return { assignedAgent: assignedTo };
       }
       throw insertErr;
     }
@@ -1796,6 +1939,9 @@ export async function executeHandoverToHuman({
           handover_for_message_id: visitorMessageId || null,
           is_offline: !bStatus.isOpen,
           schedule_summary: bStatus.scheduleSummary,
+          assigned_agent_id: assignedTo?.id ?? null,
+          assigned_agent_name: assignedTo?.name ?? null,
+          assigned_agent_avatar: assignedTo?.avatar_url ?? null,
         },
       });
     }
@@ -1805,11 +1951,14 @@ export async function executeHandoverToHuman({
     if (!humanTookOver) {
       notifyTeamByEmailLater({ workspaceId, conversationId, event: 'handover', reason });
     }
+
+    return { assignedAgent: assignedTo };
   } catch (err: any) {
     if (err?.code === '23505') {
-      return;
+      return { assignedAgent: null };
     }
     console.error('[executeHandoverToHuman Error]:', err.message);
+    return { assignedAgent: null };
   }
 }
 

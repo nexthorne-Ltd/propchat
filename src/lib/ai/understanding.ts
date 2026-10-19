@@ -73,6 +73,11 @@ const TERM_MAP: Record<string, string> = {
   refnd: 'refund', refun: 'refund', rfnd: 'refund',
   cupon: 'coupon', coupen: 'coupon', copoun: 'coupon', coupn: 'coupon', promocode: 'promo code',
   discout: 'discount', discnt: 'discount', disc: 'discount',
+  prise: 'price', prce: 'price', pric: 'price', prcie: 'price', prioce: 'price', priec: 'price',
+  instnt: 'instant', instamt: 'instant', insant: 'instant',
+  staus: 'status', stauts: 'status', satus: 'status', statsu: 'status', sttus: 'status',
+  accoutn: 'account', accunt: 'account', acoount: 'account', accont: 'account',
+  chek: 'check', chk: 'check', chck: 'check', ordr: 'order', oder: 'order',
   brech: 'breach', breech: 'breach', brach: 'breach',
   affilate: 'affiliate', afiliate: 'affiliate', comission: 'commission', commision: 'commission', refferal: 'referral', referal: 'referral',
   certficate: 'certificate', certifcate: 'certificate',
@@ -126,7 +131,7 @@ const FILLER = new Set([
 
 /** Terms the help centre uses: what a near-miss is corrected to. */
 export const DOMAIN_TERMS = [
-  'drawdown', 'withdrawal', 'withdraw', 'challenge', 'verification', 'credentials', 'account', 'accounts', 'payout', 'profit',
+  'drawdown', 'withdrawal', 'withdraw', 'challenge', 'price', 'prices', 'pricing', 'verification', 'credentials', 'account', 'accounts', 'payout', 'profit',
   'target', 'evaluation', 'funded', 'leverage', 'consistency', 'platform', 'refund', 'coupon', 'discount', 'affiliate',
   'commission', 'referral', 'breach', 'breached', 'certificate', 'scaling', 'weekend', 'overnight', 'trading', 'server',
   'password', 'invoice', 'payment', 'purchase', 'subscription', 'cancel', 'cancellation', 'dashboard', 'metatrader',

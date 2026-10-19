@@ -179,7 +179,7 @@ export const HANDOFF_OFFER =
 
 /** Asking for a person in Roman Urdu or mixed English, which `wantsHuman` does not know. */
 const HUMAN_REQUEST_ROMAN_UR =
-  /\b(?:(?:kisi\s+)?(?:insaan|insan|banday|bande|banda|agent|representative|staff|admin|support(?:\s+team)?|team|manager)\s+(?:se|say|sy)\s+(?:baat|rabta|contact)|(?:insaan|insan|human|agent|representative|real\s+person)\s+(?:chahiye|chahye|chaiye)|kisi\s+se\s+baat\s+(?:karwa|karwao|karao|krwa|kara)\w*)\b/i;
+  /\b(?:(?:kisi\s+)?(?:insaan|insan|banday|bande|banda|agent|representative|staff|admin|support(?:\s+team)?|team(?:\s+member)?|manager)\s+(?:se|say|sy)\s+(?:baat|rabta|contact|connect)|(?:insaan|insan|human|agent|representative|real\s+person|team\s+member)\s+(?:chahiye|chahye|chaiye|se\s+milna)|(?:kisi\s+se\s+)?baat\s+(?:karwa|karwao|karao|krwa|kara|karni|krni|kar\s+sakta|kr\s+sakta)\w*|(?:human|agent|person|team\s+member)\s+(?:se\s+)?connect\s+(?:karo|kar\s+do|krdo|kardo|karwao|krwao|krwa\s+do|karwa\s+do)|handover\s+(?:kar\s+do|krdo|kardo|karo|krwao|karwao))\b/i;
 
 export function asksForHuman(message: string): boolean {
   return wantsHuman(message) || HUMAN_REQUEST_ROMAN_UR.test(message);

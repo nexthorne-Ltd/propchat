@@ -2463,6 +2463,7 @@ export function ChatThread({
         {/* Interactive AI Autopilot Toggle Pill */}
         {onToggleAiMode && (() => {
           const isFullAutopilot = conversation.ai_mode === 'autopilot';
+          const isAiDisabled = conversation.ai_mode === 'disabled';
           const isWorkspaceFirstReplyOn = Boolean(
             workspace?.ai_settings?.enabled !== false &&
             (workspace?.ai_settings?.auto_response_enabled ?? true)
@@ -2480,22 +2481,28 @@ export function ChatThread({
                 'shrink-0 h-6 px-2 rounded-md transition-all cursor-pointer inline-flex items-center gap-1 text-2xs',
                 isFullAutopilot
                   ? 'bg-accent text-accent-ink font-semibold shadow-xs'
+                  : isAiDisabled
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium hover:bg-amber-500/25'
                   : isWorkspaceFirstReplyOn
                   ? 'bg-accent/15 text-accent border border-accent/30 font-medium'
                   : 'bg-surface-3 text-ink-3 hover:text-ink hover:bg-surface-3/80 border border-line'
               )}
               title={
                 isFullAutopilot
-                  ? 'Full Autopilot is ON for this conversation (click to pause)'
+                  ? 'AI Autopilot is ON for this conversation (click to pause / take over)'
+                  : isAiDisabled
+                  ? 'AI is paused (Human Agent mode active). Click to turn AI Autopilot back ON'
                   : isWorkspaceFirstReplyOn
                   ? 'Workspace AI first reply is ON (click to turn on full Autopilot)'
                   : 'AI Autopilot is OFF (click to activate)'
               }
             >
-              <Bot className={cn('w-3 h-3', isFullAutopilot ? 'text-accent-ink' : isWorkspaceFirstReplyOn ? 'text-accent' : 'text-ink-3')} />
+              <Bot className={cn('w-3 h-3', isFullAutopilot ? 'text-accent-ink' : isAiDisabled ? 'text-amber-600 dark:text-amber-400' : isWorkspaceFirstReplyOn ? 'text-accent' : 'text-ink-3')} />
               <span>
                 {isFullAutopilot
                   ? 'Autopilot'
+                  : isAiDisabled
+                  ? 'AI Paused (Turn On)'
                   : isWorkspaceFirstReplyOn
                   ? 'AI reply on'
                   : 'Autopilot Off'}
@@ -2977,6 +2984,23 @@ export function ChatThread({
                   Take over
                 </button>
               )}
+            </div>
+          )}
+
+          {!replyLocked && !isInternalMode && conversation.ai_mode === 'disabled' && onToggleAiMode && (
+            <div className="px-3 py-1.5 flex items-center gap-2 border-b border-line/40 bg-amber-500/10 dark:bg-amber-500/15 text-xs text-ink">
+              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 animate-pulse" />
+              <span className="flex-1 min-w-0 text-2xs font-medium text-amber-900 dark:text-amber-200">
+                Human agent mode active (AI paused).
+              </span>
+              <button
+                type="button"
+                onClick={() => onToggleAiMode('autopilot')}
+                className="h-6 px-2.5 rounded-md text-2xs font-bold bg-accent hover:bg-accent-hover text-accent-ink shrink-0 inline-flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+              >
+                <Bot className="w-3 h-3" />
+                <span>Turn AI Mode On</span>
+              </button>
             </div>
           )}
 

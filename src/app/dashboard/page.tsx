@@ -1828,19 +1828,30 @@ export default function DashboardPage() {
                     ...(mode === 'autopilot' ? { autopilot_enabled_at: now } : {}),
                     ...(mode === 'disabled' ? { ai_disabled_at: now } : {}),
                   };
+                  const isAutopilot = mode === 'autopilot';
+                  const dbUpdates: Record<string, any> = {
+                    ai_mode: mode,
+                    updated_at: now,
+                    channel_metadata: metaUpdate,
+                    ...(isAutopilot
+                      ? {
+                          ai_paused_reason: null,
+                          ai_needs_attention_at: null,
+                          ai_resumed_at: now,
+                        }
+                      : {
+                          ai_paused_reason: 'agent_takeover',
+                        }),
+                  };
                   await supabase
                     .from('conversations')
-                    .update({
-                      ai_mode: mode,
-                      updated_at: now,
-                      channel_metadata: metaUpdate,
-                    })
+                    .update(dbUpdates)
                     .eq('id', selectedConversationId);
 
                   setConversations((prev) =>
                     prev.map((c) =>
                       c.id === selectedConversationId
-                        ? { ...c, ai_mode: mode, channel_metadata: metaUpdate }
+                        ? { ...c, ...dbUpdates, ai_mode: mode, channel_metadata: metaUpdate }
                         : c
                     )
                   );

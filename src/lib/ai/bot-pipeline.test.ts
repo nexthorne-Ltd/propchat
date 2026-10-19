@@ -982,4 +982,71 @@ describe('agent mode (whole help centre in the prompt)', () => {
     const r = await askAgent('connect me to a human');
     expect(r.subAgent).toBe('human_handover');
   });
+
+  /*
+   * Regression: a correct answer must never end as "I couldn't find this".
+   * Jev sees part of the help centre; when it refused a right answer the
+   * bot fell to the strict path and handed the question over.
+   */
+  describe('a correct answer is never lost to the answer check', () => {
+    /** Jev live: the answer check says supported[0], then supported[1], …; everything else is plain triage. */
+    function jevLive(supported: number[]) {
+      db.tables.platform_ai_settings = [{ jev_settings: { mode: 'live' }, jev_api_key: 'ts_test' }];
+      const checks: string[] = [];
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (_url: string, init: RequestInit) => {
+          const body = JSON.parse(String(init.body));
+          let answers: Record<string, unknown>;
+          if (body.questions.supported) {
+            checks.push(String(body.state.help_center_passages));
+            answers = { supported: { type: 'noul', noul: supported[Math.min(checks.length - 1, supported.length - 1)] } };
+          } else if (body.questions.specialist) {
+            answers = { specialist: { type: 'choice', choice: Object.keys(body.questions.specialist.criteria)[0], confidence: 0.4, probabilities: {} } };
+          } else {
+            answers = {
+              intent: { type: 'choice', choice: 'help_center_question', confidence: 0.95, probabilities: {} },
+              wants_human: { type: 'noul', noul: 0.02 },
+              frustration: { type: 'score', score: 0, confidence: 0.9, probabilities: { '0': 1 } },
+              urgent: { type: 'noul', noul: 0.05 },
+              spam: { type: 'noul', noul: 0.01 },
+            };
+          }
+          return new Response(JSON.stringify({ model: 'jev-1.13.0', answers }), { status: 200 });
+        })
+      );
+      return checks;
+    }
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('Jev sees the article that holds the figure, even when another article is cited', async () => {
+      const checks = jevLive([0.9]);
+      agentAnswers('Phase 1 has a profit target of 8%, and breaking the 5% daily drawdown closes the account. [SOURCE: {{n:Maximum loss rules}}]');
+      const r = await askAgent('phase 1 ka target kitna hai aur dd kya hai');
+      expect(r.shouldHandover).toBe(false);
+      expect(checks[0]).toContain('profit target of 8%');
+      expect(checks[0]).toContain('daily drawdown is 5%');
+    });
+
+    it('one refusal is followed by one rewrite, which is sent when it passes, not handed over', async () => {
+      const checks = jevLive([0.02, 0.9]);
+      agentAnswers([
+        'Phase 1 needs 8%. [SOURCE: {{n:Maximum loss rules}}]',
+        'The phase 1 profit target is 8%. [SOURCE: {{n:Account sizes}}]',
+      ]);
+      const r = await askAgent('tell me fase 1 targt');
+      expect(checks).toHaveLength(2);
+      expect(agentCalls()).toHaveLength(2);
+      expect(agentCalls()[1][1].system).toContain('A checker could not match your previous draft');
+      expect(r.shouldHandover).toBe(false);
+      expect(r.replyText).toContain('8%');
+    });
+
+    it('two refusals still hand the question on (the answer may really be unsupported)', async () => {
+      jevLive([0.02, 0.02]);
+      agentAnswers(['Phase 1 needs 8%. [SOURCE: {{n:Maximum loss rules}}]', 'Phase 1 needs 8%. [SOURCE: {{n:Maximum loss rules}}]']);
+      await askAgent('tell me phase 1 target');
+      expect(agentCalls().length).toBeGreaterThanOrEqual(2);
+    });
+  });
 });

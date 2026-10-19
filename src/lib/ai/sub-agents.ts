@@ -349,7 +349,7 @@ export const SUB_AGENTS: SubAgentDefinition[] = [
     articleMatch: /\b(breach\w*|violations?|drawdown|loss|status|inactivity|consistency|dashboard|accounts?)\b/i,
     lookup: { action: 'account_status', needsIdentity: true },
     topic: [
-      /\b(account\s+(?:status|active|breach\w*|band|closed|disabled|fail\w*|urr\w*|blow\w*|suspend\w*)|status\s+of\s+my\s+account)\b/i,
+      /\b(account\s+(?:status|active|breach\w*|band|closed|disabled|fail\w*|urr\w*|blow\w*|suspend\w*)|status\s+of\s+my\s+account|account\b.{0,20}\bstatus|status\b.{0,20}\baccount)\b/i,
       /\b(why\s+(?:was|is|did)\s+my|kyun\s+(?:breach|band|fail)|breached|blown|disabled|suspended|hard\s+breach|soft\s+breach)\b/i,
       /\b(?:(?:my|mera|meri|mere)\b.{0,30}\b(?:balance|equity|drawdown|dd)\b.{0,20}\b(?:kitna|kitni|how\s+much|left|bacha|bachi|remaining)|(?:kitna|kitni|how\s+much)\b.{0,30}\b(?:drawdown|dd|balance)\b.{0,20}\b(?:bacha|bachi|left|remaining))\b/i,
       // Their own dashboard numbers: "mera win rate", "my profit this week", "best day kab tha".
@@ -436,7 +436,9 @@ export const SUB_AGENTS: SubAgentDefinition[] = [
     articleMatch: /\b(orders?|purchase|payment|checkout|invoice|receipt|delivery|credentials|crypto|card)\b/i,
     lookup: { action: 'order_status', needsIdentity: true },
     topic: [
-      /\b(order\s*(?:id|number|no\.?|#|status)|my\s+order|mera\s+order|order\s+(?:kahan|where|not\s+received|nahi\s+mila|pending))\b/i,
+      /\b(order\s*(?:id|number|no\.?|#|status)|my\s+order|mera\s+order|order\s+(?:kahan|where|not\s+received|nahi\s+mila|pending)|order\b.{0,25}\bstatus)\b/i,
+      // An order id on its own ("o-2681 ka status"): the prop-firm backend's ids.
+      /\b(?:o|ord)-[a-z0-9-]*\d/i,
       /\b(paid|payment\s+(?:kar\s+di|ki|done|made|ho\s+gayi|successful|kat\w*)|paise\s+kat\w*|paisay\s+kat\w*|amount\s+(?:deduct|kat)\w*|deducted)\b.{0,60}\b(account|credentials|challenge|email|nahi|not|no)\b/i,
       /\b(bought|purchased|kharida|kharidi|le\s+liya)\b.{0,50}\b(not|nahi|no|where|kahan|didn'?t)\b/i,
       /\b(invoice|receipt)\b/i,

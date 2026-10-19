@@ -735,6 +735,45 @@ export async function POST(req: NextRequest) {
         console.warn('[Auto-Respond] English copy of the reply failed:', err);
       }
     }
+    let preassignedAgent: { id: string; name: string | null; avatar_url: string | null } | null = null;
+    if (result.shouldHandover) {
+      try {
+        if (conv.assigned_agent_id) {
+          const { data: a } = await supabase.from('agents').select('id, name, avatar_url').eq('id', conv.assigned_agent_id).maybeSingle();
+          if (a) preassignedAgent = a;
+        }
+        if (!preassignedAgent) {
+          const { data: ags } = await supabase
+            .from('agents')
+            .select('id, name, avatar_url, status')
+            .eq('workspace_id', workspace_id)
+            .neq('is_active', false)
+            .neq('role', 'light_agent');
+          if (ags && ags.length > 0) {
+            const rank = (s: string | null) => (s === 'online' ? 0 : s === 'away' ? 1 : 2);
+            const sorted = [...ags].sort((a, b) => rank(a.status) - rank(b.status));
+            preassignedAgent = sorted[0];
+          }
+        }
+
+        // If visitor asked for human and an agent name is available, append professional connecting notice
+        if (preassignedAgent?.name && result.intent === 'wants_human') {
+          const agentName = preassignedAgent.name;
+          const connectingNotice =
+            visitorLang.code === 'ur'
+              ? visitorLang.roman
+                ? `\n\n🔄 Main aapko hamare available support agent **${agentName}** se connect kar raha hoon...`
+                : `\n\n🔄 میں آپ کو ہمارے دستیاب سپورٹ ایجنٹ **${agentName}** سے منسلک کر رہا ہوں۔`
+              : `\n\n🔄 Connecting you with our available support agent, **${agentName}**...`;
+          if (!replyBody.includes(agentName)) {
+            replyBody = `${replyBody}${connectingNotice}`;
+          }
+        }
+      } catch (err) {
+        console.warn('[Auto-Respond] Pre-assign agent lookup failed:', err);
+      }
+    }
+
     aiResponseText = `${replyBody}${citationLine}`;
     const aiEnglishTranslation = `${englishBody}${citationLine}`;
     const detected = { code: visitorLang.code, name: getLanguageInfo(visitorLang.code).name };
@@ -767,6 +806,21 @@ export async function POST(req: NextRequest) {
       policy_arm: result.policyArm ?? null,
       // Agent mode's specialist, shown on the reply in the inbox.
       sub_agent: result.subAgent ?? null,
+      // Quick reply chips rendered in the widget below the bot bubble.
+      // Null means no chips; an empty array is treated the same.
+      quick_replies: result.quickReplies?.length ? result.quickReplies : null,
+      handover: result.shouldHandover ? true : null,
+      assigned_agent_id: preassignedAgent?.id || null,
+      assigned_agent_name: preassignedAgent?.name || null,
+      assigned_agent_avatar: preassignedAgent?.avatar_url || null,
+      system_event: result.shouldHandover
+        ? {
+            type: 'handover',
+            agent_id: preassignedAgent?.id || null,
+            agent_name: preassignedAgent?.name || null,
+            agent_avatar: preassignedAgent?.avatar_url || null,
+          }
+        : undefined,
     };
 
     // 4. Deliver. fn_deliver_ai_reply locks the conversation and refuses the
@@ -833,7 +887,7 @@ export async function POST(req: NextRequest) {
     // 4b. If Help Desk cannot answer or customer requested a real agent, execute handover!
     if (result.shouldHandover) {
       console.log(`[Auto-Respond] Handing over conversation ${conversation_id} to real agent. Reason: ${result.handoverReason}`);
-      await executeHandoverToHuman({
+      const handoverResult = await executeHandoverToHuman({
         supabase,
         conversationId: conversation_id,
         workspaceId: workspace_id,
@@ -847,6 +901,32 @@ export async function POST(req: NextRequest) {
         // The reply just delivered already tells the visitor what happens next.
         announce: false,
       });
+
+      const finalAgent = (handoverResult as any)?.assignedAgent || preassignedAgent;
+      if (insertedMsg?.id && finalAgent) {
+        try {
+          await supabase
+            .from('messages')
+            .update({
+              metadata: {
+                ...replyMetadata,
+                handover: true,
+                assigned_agent_id: finalAgent.id,
+                assigned_agent_name: finalAgent.name,
+                assigned_agent_avatar: finalAgent.avatar_url,
+                system_event: {
+                  type: 'handover',
+                  agent_id: finalAgent.id,
+                  agent_name: finalAgent.name,
+                  agent_avatar: finalAgent.avatar_url,
+                },
+              },
+            })
+            .eq('id', insertedMsg.id);
+        } catch (updateErr) {
+          console.warn('[Auto-Respond] Failed to attach final agent metadata to message:', updateErr);
+        }
+      }
       await logAiEvent(supabase, {
         workspaceId: workspace_id,
         conversationId: conversation_id,

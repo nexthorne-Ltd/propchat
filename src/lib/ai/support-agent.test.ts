@@ -74,3 +74,19 @@ describe('buildSupportAgentPrompt: the trader record', () => {
     expect(buildSupportAgentPrompt(base)).not.toContain('TRADER RECORD');
   });
 });
+
+
+describe("groundingPassages: Jev sees every article the reply's figures come from", () => {
+  it("adds the articles holding the reply's numbers after the cited one", async () => {
+    const { groundingPassages } = await import('@/lib/ai/anthropic');
+    const knowledge = [
+      '[ARTICLE 1]\nTitle: Instant accounts\nInstant accounts are funded at once.',
+      '[ARTICLE 2]\nTitle: Prices\nInstant 5K costs $24.',
+      '[ARTICLE 3]\nTitle: Rules\nDaily drawdown 5%.',
+    ].join('\n\n---\n\n');
+    const p = groundingPassages(knowledge, 1, 'The Instant 5K account is $24 and funded at once.');
+    expect(p).toContain('Instant accounts are funded at once');
+    expect(p).toContain('Instant 5K costs $24');
+    expect(p).not.toContain('Daily drawdown');
+  });
+});

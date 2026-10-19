@@ -61,6 +61,14 @@ describe('searchQueriesFor', () => {
 describe('the router reads past typos and shorthand', () => {
   it.each<[string, SubAgentId, string?]>([
     ['pyout kab ayga', 'payouts'],
+    ['tell me instamt 5k prioce', 'pricing_offers'],
+    ['kinly ye bta sky ho mery accoutn ka ky staus hai', 'account_status', 'account_specific'],
+    ['ordr o-2681 ka staus chek kro', 'order_lookup', 'account_specific'],
+    ['drwadown kitna hai 25k pe', 'rules'],
+    ['pyout ki minimm amount', 'payouts'],
+    ['kyc ke documnts kya chahiye', 'kyc'],
+    ['prise of 10k challenge', 'pricing_offers'],
+    ['mera win rate kitna hai', 'account_status', 'account_specific'],
     ['mera acc ud gaya kyun', 'account_status', 'account_specific'],
     ['drwadown kitna hai 10k pe', 'rules'],
     ['coupen kaam nahi kar raha', 'coupon_check'],
