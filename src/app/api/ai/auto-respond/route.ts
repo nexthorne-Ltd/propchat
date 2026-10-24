@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
         .from('conversations')
         // '*' rather than a column list, so the route keeps working before
         // the last_resolved_at migration has been run.
-        .select('*, visitor:visitors(name)')
+        .select('*, visitor:visitors(name, email)')
         .eq('id', conversation_id)
         .single(),
       // Only the recent end of the thread is ever used below.

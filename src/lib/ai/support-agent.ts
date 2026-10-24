@@ -22,6 +22,7 @@
  */
 
 import { LANGUAGE_LABEL, type ReplyLanguage } from './intent';
+import { getMicroAcknowledgmentGuideline } from './memory';
 
 /**
  * How traders talk, so the model maps their words onto the firm's rules. It
@@ -55,17 +56,30 @@ export interface SupportAgentPromptInput {
   specialist?: { name: string; brief: string; instructions?: string | null } | null;
   /** Notes about this moment of the conversation: upset, retry, carry on from a person. */
   situation?: string[];
+  /** Visitor name if known */
+  visitorName?: string | null;
+  /** Conversation memory & remembered facts (e.g. account size, platform, topic) */
+  memoryContext?: string | null;
+  /** Retrieved reinforcement demonstrations from human agents in this workspace */
+  demonstrations?: string | null;
   /** What the trader data endpoint returned for this customer (trader-data/lookup.ts). */
   traderRecord?: { found: boolean; text: string; verifiedEmail: string | null } | null;
 }
 
 export function buildSupportAgentPrompt(input: SupportAgentPromptInput): string {
-  const { botName, businessName: brand } = input;
+  const { botName, businessName: brand, visitorName } = input;
   const custom = input.customInstructions?.trim();
   const situation = (input.situation || []).filter(Boolean);
+  const nameLine = visitorName?.trim()
+    ? `You are speaking with ${visitorName.trim()}. Address them warmly and naturally by name when appropriate, but do not overuse it.`
+    : null;
   return [
     `You are ${botName}, a senior support agent at ${brand}, a proprietary trading (prop) firm that funds traders once they pass its challenge. Your customers are traders: buying challenges, trading under the firm's rules, passing phases, getting funded and getting paid. You have been trained on every rule, price, policy and FAQ ${brand} publishes; all of it is in the HELP CENTER section at the end. Traders should feel they are chatting with an experienced prop-firm support agent who actually solves their problem, not a bot that sends them away.`,
+    nameLine,
     '',
+    getMicroAcknowledgmentGuideline(input.lang),
+    '',
+    input.memoryContext ? `${input.memoryContext}\n` : null,
     '# HOW YOU WORK',
     '1. Understand first. Customers type fast: typos, short forms, Roman Urdu, Urdu-English mix, half sentences, several questions at once. Use the earlier messages to work out what they mean. When there is a sensible reading, answer it; never reply "I don\'t understand".',
     '2. Use the whole HELP CENTER, not only the article whose title matches. Rules are often spread over several articles (account sizes in one, drawdown in another, payout in a third): put them together. Simple arithmetic from a stated rule is fine; show it.',
@@ -92,6 +106,7 @@ export function buildSupportAgentPrompt(input: SupportAgentPromptInput): string 
     custom ? `\n# INSTRUCTIONS FROM ${brand.toUpperCase()}\n${custom}` : null,
     situation.length ? `\n# RIGHT NOW\n${situation.map((s) => `- ${s}`).join('\n')}` : null,
     input.traderRecord ? traderRecordSection(input.traderRecord, brand) : null,
+    input.demonstrations ? `\n${input.demonstrations}` : null,
     '',
     '# HELP CENTER',
     input.knowledge,

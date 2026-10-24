@@ -18,6 +18,12 @@ import {
   UPSET_SITUATION,
 } from './support-agent';
 import {
+  extractConversationMemory,
+  formatMemoryForPrompt,
+  getMicroAcknowledgmentGuideline,
+} from './memory';
+import { retrieveWorkspaceDemonstrations } from './learning/human-reinforce';
+import {
   propFirmWelcome,
   routeSubAgent,
   SUB_AGENT_BY_ID,
@@ -314,14 +320,39 @@ export function buildHumanSupportSystemPrompt({
   businessName,
   customInstructions,
   retrievedChunks,
+  visitorName,
+  memoryContext,
+  demonstrations,
+  lang = 'en',
 }: {
   botName: string;
   businessName: string;
   customInstructions?: string | null;
   retrievedChunks: string;
+  visitorName?: string | null;
+  memoryContext?: string | null;
+  demonstrations?: string | null;
+  lang?: ReplyLanguage;
 }): string {
   const custom = customInstructions?.trim() ? `\n\n${customInstructions.trim()}` : '';
-  return `You are ${botName}, a support team member at ${businessName}. Answer using only the information in the KNOWLEDGE section below. Write the way a friendly, competent support agent chats: short, clear, warm, and direct. Reply in the same language and style the customer writes in (including Roman Urdu if they use it). Usually 1-3 short sentences; use steps only when the customer needs to follow a process. Do not use headings, do not start with phrases like 'Great question' or 'I'd be happy to help', do not repeat the customer's question back, and do not mention 'the knowledge base', 'documents' or 'context'. If the customer is upset, acknowledge it briefly before helping. If the answer is not in KNOWLEDGE, or the customer asks for a human, or it concerns a refund, payment dispute or account-specific issue you cannot check, say you are passing them to the team and do not invent an answer. Never make up prices, policies, links or timelines. If asked directly whether you are an AI, answer honestly.${custom}
+  const nameLine = visitorName?.trim()
+    ? `You are speaking with ${visitorName.trim()}. Address them warmly and naturally by name when appropriate, but do not overuse it.`
+    : '';
+  const memoryBlock = memoryContext ? `\n\n${memoryContext}` : '';
+  const demoBlock = demonstrations ? `\n\n${demonstrations}` : '';
+  const microAck = getMicroAcknowledgmentGuideline(lang);
+
+  return `You are ${botName}, a support team member at ${businessName}. Answer using only the information in the KNOWLEDGE section below. Write the way a friendly, competent support agent chats: short, clear, warm, and direct. ${nameLine}
+
+${microAck}${memoryBlock}${demoBlock}
+
+# CHAT RULES
+- Reply in the same language and style the customer writes in (including Roman Urdu if they use it).
+- Usually 1-3 short sentences; use steps only when the customer needs to follow a process.
+- Do not use headings, do not start with phrases like 'Great question' or 'I'd be happy to help', do not repeat the customer's question back, and do not mention 'the knowledge base', 'documents' or 'context'.
+- If the customer is upset, acknowledge it briefly before helping.
+- If the answer is not in KNOWLEDGE, or the customer asks for a human, or it concerns a refund, payment dispute or account-specific issue you cannot check, say you are passing them to the team and do not invent an answer.
+- Never make up prices, policies, links or timelines. If asked directly whether you are an AI, answer honestly.${custom}
 
 # OUTPUT RULES (the code that reads your reply depends on these)
 - If the KNOWLEDGE does not answer the question at all, reply with exactly [NOT_COVERED] and nothing else.
@@ -342,6 +373,9 @@ interface HelpCenterInput {
   lang: ReplyLanguage;
   brand: string;
   botName?: string;
+  visitorName?: string | null;
+  memoryContext?: string | null;
+  demonstrations?: string | null;
   providerConfig?: ProviderConfig | null;
   systemPrompt?: string | null;
   history?: string[];
@@ -613,6 +647,10 @@ async function answerHelpCenterQuestionUnder(input: HelpCenterInput): Promise<He
     const system = buildHumanSupportSystemPrompt({
       botName: botName || 'Support Agent',
       businessName: brand,
+      visitorName: input.visitorName || null,
+      memoryContext: input.memoryContext || null,
+      demonstrations: input.demonstrations || null,
+      lang,
       customInstructions:
         [input.systemPrompt?.trim(), carryOnInstruction(input.humanContext)].filter(Boolean).join('\n\n') || null,
       retrievedChunks: context.text,
@@ -624,9 +662,9 @@ async function answerHelpCenterQuestionUnder(input: HelpCenterInput): Promise<He
       providerConfig,
       request: {
         system,
-        // The retrieval already resolved follow-ups; older turns only cost tokens.
-        messages: input.conversationMessages.slice(-4),
-        maxTokens: 300,
+        // Send up to 8 recent turns for proper context retention
+        messages: input.conversationMessages.slice(-8),
+        maxTokens: 350,
         temperature: 0.3,
         reasoning: 'fast',
         // Below the route's overall budget, so a slow provider falls back to
@@ -779,6 +817,9 @@ async function answerGeneralQuestion({
   lang: ReplyLanguage;
   brand: string;
   botName?: string;
+  visitorName?: string | null;
+  memoryContext?: string | null;
+  demonstrations?: string | null;
   providerConfig?: ProviderConfig | null;
 }): Promise<string | null> {
   if (!isConfigured(providerConfig)) return null;
@@ -822,6 +863,9 @@ interface SupportAgentInput {
   lang: ReplyLanguage;
   brand: string;
   botName?: string;
+  visitorName?: string | null;
+  memoryContext?: string | null;
+  demonstrations?: string | null;
   providerConfig?: ProviderConfig | null;
   systemPrompt?: string | null;
   conversationMessages: { role: 'user' | 'assistant'; content: string }[];
@@ -977,6 +1021,9 @@ async function answerAsSupportAgent(input: SupportAgentInput): Promise<HelpDeskR
     businessName: brand,
     knowledge: knowledge.text,
     lang,
+    visitorName: input.visitorName || null,
+    memoryContext: input.memoryContext || null,
+    demonstrations: input.demonstrations || null,
     customInstructions: input.systemPrompt,
     specialist: specialist.brief
       ? { name: specialist.name, brief: specialist.brief, instructions: input.subAgentInstructions }
@@ -1253,6 +1300,14 @@ async function respondToVisitor({
   ).slice(-9);
   const conversationMessages = [...priorTurns, { role: 'user' as const, content: incomingMessage }].slice(-10);
 
+  // Extract conversational memory and known facts (account size, platform, topic, name)
+  const extractedMemory = extractConversationMemory(conversationMessages, { name });
+  const memoryContext = formatMemoryForPrompt(extractedMemory);
+  const effectiveVisitorName = name || extractedMemory.visitorName || null;
+
+  // Real-time Reinforcement Learning: retrieve human agent demonstrations for this workspace
+  const demonstrations = await retrieveWorkspaceDemonstrations(workspaceId, incomingMessage).catch(() => null);
+
   // 1. Enforce plan AI access and monthly limits
   const effective = await getWorkspaceEffectivePlan(workspaceId);
   const plan = effective.plan;
@@ -1502,6 +1557,9 @@ async function respondToVisitor({
         lang,
         brand,
         botName,
+        visitorName: effectiveVisitorName,
+        memoryContext,
+        demonstrations,
         providerConfig: activeConfig,
         systemPrompt,
         conversationMessages,
@@ -1585,6 +1643,9 @@ async function respondToVisitor({
         lang,
         brand,
         botName,
+        visitorName: effectiveVisitorName,
+        memoryContext,
+        demonstrations,
         providerConfig: activeConfig,
         systemPrompt,
         conversationMessages,
@@ -1653,6 +1714,9 @@ async function respondToVisitor({
         lang,
         brand,
         botName,
+        visitorName: effectiveVisitorName,
+        memoryContext,
+        demonstrations,
         providerConfig: activeConfig,
       });
       if (general) {
@@ -1683,6 +1747,9 @@ async function respondToVisitor({
         lang,
         brand,
         botName,
+        visitorName: effectiveVisitorName,
+        memoryContext,
+        demonstrations,
         providerConfig: activeConfig,
         systemPrompt,
         history,

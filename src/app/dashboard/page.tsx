@@ -18,8 +18,9 @@ import { sendBrowserNotification, cn } from '@/lib/utils';
 import { updateFaviconBadge } from '@/lib/favicon';
 import { SetupChecklist } from '@/components/dashboard/SetupChecklist';
 import { isVisitorOnline } from '@/lib/tracking/visitor-tracking';
+import { isWaitingForPerson } from '@/lib/inbox/handovers';
 import type { SectionId } from '@/components/dashboard/SettingsHub';
-import { BarChart2, BookOpen, Inbox, MessagesSquare, Radio, Settings, Smartphone, ShieldAlert, LogOut, Sparkles, Ticket, HelpCircle } from 'lucide-react';
+import { BarChart2, BookOpen, Inbox, MessagesSquare, Radio, Settings, Smartphone, ShieldAlert, LogOut, Sparkles, Ticket, HelpCircle, Hand } from 'lucide-react';
 import { exitSuperAdminWorkspaceViewAction } from '@/app/actions/platform';
 import dynamic from 'next/dynamic';
 import { LoadingState } from '@/components/ui/States';
@@ -36,6 +37,7 @@ const SettingsHub = dynamic(() => import('@/components/dashboard/SettingsHub').t
 const ReportsDashboard = dynamic(() => import('@/components/reports/ReportsDashboard').then((m) => m.ReportsDashboard), { loading: viewLoading });
 const HelpDeskDashboard = dynamic(() => import('@/components/dashboard/HelpDeskDashboard').then((m) => m.HelpDeskDashboard), { loading: viewLoading });
 const TicketsView = dynamic(() => import('@/components/tickets/TicketsView').then((m) => m.TicketsView), { loading: viewLoading });
+const HandoversView = dynamic(() => import('@/components/dashboard/HandoversView').then((m) => m.HandoversView), { loading: viewLoading });
 const UnansweredQuestionsView = dynamic(() => import('@/components/dashboard/UnansweredQuestionsView').then((m) => m.UnansweredQuestionsView), { loading: viewLoading });
 const KeyboardShortcutsModal = dynamic(() => import('@/components/ui/KeyboardShortcutsModal').then((m) => m.KeyboardShortcutsModal));
 const TeamChat = dynamic(() => import('@/components/team-chat/TeamChat').then((m) => m.TeamChat), { loading: viewLoading });
@@ -1388,6 +1390,22 @@ export default function DashboardPage() {
             : c
         )
       );
+
+      // Real-time Reinforcement Learning: Learn from human agent's verified reply in this workspace
+      if (currentWorkspaceRef.current?.id && insertedMsg?.id && content?.trim()) {
+        fetch('/api/ai/reinforce', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workspaceId: currentWorkspaceRef.current.id,
+            conversationId: targetId,
+            agentMessageId: insertedMsg.id,
+            agentContent: content,
+          }),
+        }).catch((err) => {
+          console.warn('[Reinforce] Background learning failed:', err);
+        });
+      }
     } else {
       await supabase
         .from('conversations')
@@ -1659,6 +1677,7 @@ export default function DashboardPage() {
     liveVisitors: visitors.filter((v) => isVisitorOnline(v)).length,
     articles: articlesCount,
     unanswered: unansweredCount,
+    handovers: conversations.filter(isWaitingForPerson).length,
     teamUnread: teamInbox.unread,
     teamUrgent: teamInbox.urgent,
   };
@@ -2022,6 +2041,17 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {activeView === 'handovers' && (
+        <div className="flex-1 flex overflow-hidden w-full pb-14 md:pb-0">
+          <HandoversView
+            workspace={currentWorkspace}
+            currentAgent={currentAgent}
+            waitingCount={counts.handovers}
+            onOpenConversation={(id) => void openLinkedConversation(id)}
+          />
+        </div>
+      )}
+
       {activeView === 'unanswered' && (
         <div className="flex-1 flex overflow-hidden w-full pb-14 md:pb-0">
           <UnansweredQuestionsView
@@ -2059,6 +2089,7 @@ export default function DashboardPage() {
           {(
             [
               ['inbox', 'Inbox', Inbox, true],
+              ['handovers', 'Waiting', Hand, true],
               ['tickets', 'Tickets', Ticket, true],
               ['team', 'Team', MessagesSquare, true],
               ['visitors', 'Visitors', Radio, true],

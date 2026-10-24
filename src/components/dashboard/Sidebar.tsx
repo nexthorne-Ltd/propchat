@@ -7,6 +7,7 @@ import {
   BookOpen,
   ChevronsUpDown,
   ExternalLink,
+  Hand,
   HelpCircle,
   Inbox,
   MessagesSquare,
@@ -27,7 +28,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Menu } from '@/components/ui/Menu';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
-export type View = 'inbox' | 'tickets' | 'team' | 'visitors' | 'reports' | 'helpdesk' | 'settings' | 'unanswered';
+export type View = 'inbox' | 'handovers' | 'tickets' | 'team' | 'visitors' | 'reports' | 'helpdesk' | 'settings' | 'unanswered';
 
 interface SidebarProps {
   currentAgent: Agent | null;
@@ -39,6 +40,8 @@ interface SidebarProps {
     liveVisitors: number;
     articles?: number;
     unanswered?: number;
+    /** Conversations the bot handed over that no person has answered yet. */
+    handovers?: number;
     /** Unread team-chat messages; mentions and direct messages make it urgent. */
     teamUnread?: number;
     teamUrgent?: boolean;
@@ -99,6 +102,19 @@ export function Sidebar({
       badge: counts.open > 0 ? (
         <span className="px-1.5 py-0.5 text-2xs font-bold rounded-full bg-accent text-accent-ink shadow-xs">
           {counts.open}
+        </span>
+      ) : undefined,
+    },
+    {
+      view: 'handovers',
+      label: 'Handovers',
+      Icon: Hand,
+      badge: counts.handovers ? (
+        <span
+          className="px-1.5 py-0.5 text-2xs font-bold rounded-full bg-accent text-accent-ink shadow-xs"
+          aria-label={`${counts.handovers} waiting for a person`}
+        >
+          {counts.handovers > 99 ? '99+' : counts.handovers}
         </span>
       ) : undefined,
     },
