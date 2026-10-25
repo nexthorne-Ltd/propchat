@@ -20,6 +20,7 @@ import { updateNavbarTriggerConfigAction } from '@/app/actions/admin';
 import { getWorkspaceHelpCenterUrl, cleanDomain } from '@/lib/domain';
 import { cn } from '@/lib/utils';
 import { errorMessage } from '@/lib/errors/user-error';
+import { DEFAULT_BRAND_COLOR } from '@/lib/brand';
 
 interface NavbarPreviewModalProps {
   isOpen: boolean;
@@ -247,7 +248,7 @@ export function NavbarPreviewModal({
               </span>
             </div>
 
-            <div className="rounded-xl border border-line-3 bg-invert overflow-hidden shadow-2xl text-slate-100">
+            <div className="rounded-xl border border-line-3 bg-invert overflow-hidden shadow-2xl text-invert-ink">
               {/* Browser chrome address bar */}
               <div className="px-4 py-2.5 bg-invert border-b border-line-3 flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
@@ -267,7 +268,7 @@ export function NavbarPreviewModal({
                 <div className="flex items-center gap-2.5 shrink-0">
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-ui shadow-sm"
-                    style={{ backgroundColor: workspace.brand_color || '#2563eb' }}
+                    style={{ backgroundColor: workspace.brand_color || DEFAULT_BRAND_COLOR }}
                   >
                     {(workspace.name || 'C').charAt(0).toUpperCase()}
                   </div>
@@ -283,7 +284,7 @@ export function NavbarPreviewModal({
                       {style === 'pill' ? (
                         <span
                           className="inline-flex items-center justify-center px-3.5 py-1 rounded-full text-white text-xs font-semibold shadow-md transition-all animate-pulse"
-                          style={{ backgroundColor: workspace.brand_color || '#2563eb' }}
+                          style={{ backgroundColor: workspace.brand_color || DEFAULT_BRAND_COLOR }}
                         >
                           {label || 'Help'}
                         </span>
@@ -298,16 +299,16 @@ export function NavbarPreviewModal({
                     </div>
                   )}
 
-                  <span className="text-ink-3 hover:text-slate-200 cursor-default transition-colors">
+                  <span className="text-ink-3 hover:text-invert-ink cursor-default transition-colors">
                     Products
                   </span>
-                  <span className="text-ink-3 hover:text-slate-200 cursor-default transition-colors">
+                  <span className="text-ink-3 hover:text-invert-ink cursor-default transition-colors">
                     Solutions
                   </span>
-                  <span className="text-ink-3 hover:text-slate-200 cursor-default transition-colors">
+                  <span className="text-ink-3 hover:text-invert-ink cursor-default transition-colors">
                     Pricing
                   </span>
-                  <span className="text-ink-3 hover:text-slate-200 cursor-default transition-colors">
+                  <span className="text-ink-3 hover:text-invert-ink cursor-default transition-colors">
                     About
                   </span>
 
@@ -316,7 +317,7 @@ export function NavbarPreviewModal({
                       {style === 'pill' ? (
                         <span
                           className="inline-flex items-center justify-center px-3.5 py-1 rounded-full text-white text-xs font-semibold shadow-md transition-all animate-pulse"
-                          style={{ backgroundColor: workspace.brand_color || '#2563eb' }}
+                          style={{ backgroundColor: workspace.brand_color || DEFAULT_BRAND_COLOR }}
                         >
                           {label || 'Help'}
                         </span>
@@ -336,7 +337,7 @@ export function NavbarPreviewModal({
                 <div className="hidden sm:block">
                   <span
                     className="px-3.5 py-1.5 rounded-lg text-white font-semibold text-xs shadow-sm cursor-default"
-                    style={{ backgroundColor: workspace.brand_color || '#2563eb' }}
+                    style={{ backgroundColor: workspace.brand_color || DEFAULT_BRAND_COLOR }}
                   >
                     Get Started
                   </span>

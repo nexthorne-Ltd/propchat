@@ -32,6 +32,7 @@ import { cleanDomain, getPlatformOrigin } from '@/lib/domain';
 import { getRequestOrigin } from '@/lib/request-origin';
 import { userError } from '@/lib/errors/user-error';
 import { findAuthUserByEmail } from '@/lib/auth/verification-code';
+import { DEFAULT_BRAND_COLOR } from '@/lib/brand';
 
 export type {
   PlatformUserItem,
@@ -602,7 +603,7 @@ export async function getPlatformWorkspacesAction(): Promise<PlatformWorkspaceIt
       suspension_reason: ws.suspension_reason || null,
       deleted_at: ws.deleted_at || null,
       plan: ws.plan || 'free',
-      brand_color: ws.brand_color || '#2563eb',
+      brand_color: ws.brand_color || DEFAULT_BRAND_COLOR,
       logo_url: ws.logo_url || null,
       agents_count: wsAgents.length,
       tickets_30d_count: tickets30d.length,
@@ -879,7 +880,7 @@ export async function getWorkspaceDetailAction(
       id: ws.id,
       name: ws.name,
       website_url: ws.website_url || ws.custom_domain || null,
-      brand_color: ws.brand_color || '#2563eb',
+      brand_color: ws.brand_color || DEFAULT_BRAND_COLOR,
       status: ws.is_suspended ? ('suspended' as const) : ('active' as const),
       is_suspended: Boolean(ws.is_suspended),
       suspended_at: ws.suspended_at || null,
@@ -1238,7 +1239,7 @@ export async function createCompanyAction(data: {
     .insert({
       name: data.name.trim(),
       website_url: data.website_url?.trim() || null,
-      brand_color: data.brand_color || '#2563eb',
+      brand_color: data.brand_color || DEFAULT_BRAND_COLOR,
       greeting_title: data.greeting_title?.trim() || 'Welcome to Support! 👋',
       greeting_message: data.greeting_message?.trim() || 'How can our team help you today?',
       owner_id: owner.id,
@@ -2076,7 +2077,7 @@ export async function getPlatformOverviewMetricsAction(): Promise<PlatformOvervi
   const newestWorkspaces = (newestWorkspacesData || []).map((w) => ({
     id: w.id,
     name: w.name,
-    brand_color: w.brand_color || '#2563eb',
+    brand_color: w.brand_color || DEFAULT_BRAND_COLOR,
     created_at: w.created_at,
     is_suspended: !!w.is_suspended,
     plan: w.plan || 'free',
@@ -2275,7 +2276,7 @@ export async function getPlatformWorkspacesTableAction(
       suspension_reason: w.suspension_reason || null,
       deleted_at: w.deleted_at || null,
       plan: w.plan || 'free',
-      brand_color: w.brand_color || '#2563eb',
+      brand_color: w.brand_color || DEFAULT_BRAND_COLOR,
       logo_url: w.logo_url || null,
       agents_count: agentCounts.get(w.id) ?? 0,
       tickets_30d_count: ticketCounts.get(w.id) ?? 0,
@@ -2535,7 +2536,7 @@ export async function getPlatformWorkspaceDetailAction(
       suspension_reason: ws.suspension_reason || null,
       deleted_at: ws.deleted_at || null,
       plan: ws.plan || 'free',
-      brand_color: ws.brand_color || '#2563eb',
+      brand_color: ws.brand_color || DEFAULT_BRAND_COLOR,
       logo_url: ws.logo_url || null,
       agents_count: agents?.length || 0,
       tickets_30d_count: tickets30dCount,
@@ -2862,7 +2863,7 @@ export async function getPlatformGlobalSearchAction(query: string): Promise<{
   const workspaces = (wsData || []).map((w) => ({
     id: w.id,
     name: w.name,
-    brand_color: w.brand_color || '#2563eb',
+    brand_color: w.brand_color || DEFAULT_BRAND_COLOR,
     plan: w.plan || 'free',
     status: w.is_suspended ? 'suspended' : 'active',
   }));

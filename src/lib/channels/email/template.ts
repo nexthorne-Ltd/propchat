@@ -1,3 +1,4 @@
+import { DEFAULT_BRAND_COLOR } from '@/lib/brand';
 /**
  * The branded email every outgoing message uses: agent replies and the
  * notifications triggers send. Email clients ignore stylesheets, so styling is
@@ -23,7 +24,7 @@ export interface BrandedEmailInput {
   csatLinks?: { goodUrl: string; badUrl: string } | null;
 }
 
-const FALLBACK_COLOR = '#2563eb';
+const FALLBACK_COLOR = DEFAULT_BRAND_COLOR;
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 export function escapeHtml(text: string): string {

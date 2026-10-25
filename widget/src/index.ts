@@ -6,6 +6,7 @@ import { splitLinks } from '../../src/lib/text/links';
 import { normalizePrechat, prechatAsksNothing, type PrechatConfig, type PrechatFieldMode } from '../../src/lib/widget/prechat';
 import { isChatFirstDesign, isHexColor, isWidgetColorMode, isWidgetDesign, launcherIcon, type WidgetColorMode, type WidgetDesignId } from '../../src/lib/widget/launcher-icons';
 import { formatMarkdownToHtml } from '../../src/lib/widget/article-markdown';
+import { DEFAULT_BRAND_COLOR } from '../../src/lib/brand';
 
 const DEFAULT_API_URL = 'https://zen-try.site';
 /** Hosts that only redirect to DEFAULT_API_URL; API calls go there directly. */
@@ -175,6 +176,7 @@ class ZentryWidget {
   private prechat: PrechatConfig = normalizePrechat(undefined);
   private csatRated: boolean = false;
   private pendingAttachment: { file: File; previewUrl: string } | null = null;
+  private netBannerTimer: ReturnType<typeof setTimeout> | null = null;
   private activeEmojiCategory: string = 'smileys';
   private emojiSearchQuery: string = '';
   private currentPopupMsgId: string | null = null;
@@ -382,7 +384,7 @@ class ZentryWidget {
       workspaceId: urlWs || script?.getAttribute('data-workspace-id') || null,
       title: script?.getAttribute('data-title') || 'Support Team',
       subtitle: script?.getAttribute('data-subtitle') || 'We reply in under 5 minutes',
-      primaryColor: script?.getAttribute('data-color') || '#2e5bff',
+      primaryColor: script?.getAttribute('data-color') || DEFAULT_BRAND_COLOR,
       position: (script?.getAttribute('data-position') as 'bottom-right' | 'bottom-left') || 'bottom-right',
       helpTabLabel: script?.getAttribute('data-help-label') || 'Help',
       showHelpTab: script?.getAttribute('data-show-help') !== 'false',
@@ -808,8 +810,8 @@ class ZentryWidget {
                 ? `
               <div class="chatify-vote-group" style="display:flex; align-items:center; gap:6px;">
                 <span style="font-size:11px; color:var(--w-ink-3);">Helpful?</span>
-                <button class="chatify-vote-btn" data-art-id="${this.escapeHTML(faq.id)}" data-helpful="true" style="padding:3px 8px; border-radius:4px; border:1px solid var(--w-line); background:var(--w-surface); font-size:11.5px; cursor:pointer; color:var(--w-ink);">👍 Yes</button>
-                <button class="chatify-vote-btn" data-art-id="${this.escapeHTML(faq.id)}" data-helpful="false" style="padding:3px 8px; border-radius:4px; border:1px solid var(--w-line); background:var(--w-surface); font-size:11.5px; cursor:pointer; color:var(--w-ink);">👎 No</button>
+                <button class="chatify-vote-btn" data-art-id="${this.escapeHTML(faq.id)}" data-helpful="true" style="padding:4px 10px; border-radius:var(--w-r-sm); border:1px solid var(--w-line-2); background:var(--w-surface); font-size:12px; font-weight:600; cursor:pointer; color:var(--w-ink);">Yes</button>
+                <button class="chatify-vote-btn" data-art-id="${this.escapeHTML(faq.id)}" data-helpful="false" style="padding:4px 10px; border-radius:var(--w-r-sm); border:1px solid var(--w-line-2); background:var(--w-surface); font-size:12px; font-weight:600; cursor:pointer; color:var(--w-ink);">No</button>
               </div>
             `
                 : ''
@@ -1279,6 +1281,8 @@ class ZentryWidget {
     };
 
     window.addEventListener('beforeunload', notifyOffline);
+    window.addEventListener('offline', () => this.updateNetworkBanner(false));
+    window.addEventListener('online', () => this.updateNetworkBanner(true));
     window.addEventListener('pagehide', notifyOffline);
   }
 
@@ -2193,6 +2197,14 @@ class ZentryWidget {
           --w-line: #232329;
           --w-line-2: #2f2f37;
           --w-success: #34d9a7;
+          --w-success-soft: #0c1f1a;
+          --w-success-line: #1d453a;
+          --w-warn: #e5a742;
+          --w-warn-soft: #221a0c;
+          --w-warn-line: #4a3717;
+          --w-danger: #ff6b86;
+          --w-danger-soft: #240f16;
+          --w-danger-line: #4d222e;
           --w-glass: rgba(16, 16, 19, 0.84);
           --w-glass-line: rgba(255, 255, 255, 0.08);
           --w-focus: #7a99ff;
@@ -2308,7 +2320,7 @@ class ZentryWidget {
         display: block; position: absolute; right: 2px; bottom: 2px; width: 14px; height: 14px;
         border-radius: 50%; background: #a1a1aa; border: 2.5px solid #ffffff;
       }
-      .chatify-launcher-status.is-online { background: #22c55e; }
+      .chatify-launcher-status.is-online { background: var(--w-success); }
       .chatify-launcher.widget-is-open .chatify-launcher-status { display: none; }
       `;
     }
@@ -2631,14 +2643,22 @@ class ZentryWidget {
           }
         </div>
 
-        <!-- Attachment preview container -->
-        <div id="chatifyAttachmentPreview" class="chatify-attachment-preview" style="display:none;">
-          <img id="chatifyPreviewImg" class="chatify-preview-thumb" src="" alt="Preview" />
+        <!-- Connection banner: shown only while the browser reports it is offline -->
+        <div id="chatifyNetBanner" class="chatify-net-banner" role="status" aria-live="polite" hidden>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><path d="m2 2 20 20"/></svg>
+          <span id="chatifyNetBannerText">You're offline. Messages will send when you reconnect.</span>
+        </div>
+
+        <!-- Attachment card: ready, sending or failed (data-state) -->
+        <div id="chatifyAttachmentPreview" class="chatify-attachment-preview" data-state="ready" style="display:none;">
+          <img id="chatifyPreviewImg" class="chatify-preview-thumb" src="" alt="" />
           <div class="chatify-preview-info">
             <span id="chatifyPreviewName" class="chatify-preview-name">image.png</span>
-            <span id="chatifyPreviewSize" class="chatify-preview-size">0 KB</span>
+            <span id="chatifyPreviewSize" class="chatify-preview-size" aria-live="polite">0 KB</span>
+            <span class="chatify-preview-bar" aria-hidden="true"><span></span></span>
           </div>
-          <button type="button" id="chatifyPreviewRemove" class="chatify-preview-remove" title="Remove picture">✕</button>
+          <button type="button" id="chatifyPreviewRetry" class="chatify-preview-retry">Retry</button>
+          <button type="button" id="chatifyPreviewRemove" class="chatify-preview-remove" title="Remove picture" aria-label="Remove picture">✕</button>
         </div>
 
         <!-- Emoji Picker Popover (WhatsApp Style) -->
@@ -2845,6 +2865,7 @@ class ZentryWidget {
     const imageInput = this.shadow.getElementById('chatifyImageInput') as HTMLInputElement | null;
     const emojiBtn = this.shadow.getElementById('chatifyEmojiBtn');
     const previewRemoveBtn = this.shadow.getElementById('chatifyPreviewRemove');
+    this.shadow.getElementById('chatifyPreviewRetry')?.addEventListener('click', () => this.handleSendMessage());
     const lightboxCloseBtn = this.shadow.getElementById('chatifyLightboxClose');
     const lightbox = this.shadow.getElementById('chatifyImageLightbox');
 
@@ -2926,12 +2947,12 @@ class ZentryWidget {
     // Large camera photos are fine: they are shrunk on the device before
     // upload. This only stops files no phone photo comes close to.
     if (file.size > 40 * 1024 * 1024) {
-      alert('This picture is too large. Please choose a smaller one.');
+      this.showAttachmentProblem(file.name, 'This picture is too large. Choose one under 40 MB.');
       return;
     }
     // Accepts HEIC and photos that arrive with no MIME type (some Android galleries).
     if (!looksLikeImage(file)) {
-      alert('Please select a picture (JPEG, PNG, HEIC, WEBP or GIF).');
+      this.showAttachmentProblem(file.name, 'Choose a picture (JPEG, PNG, HEIC, WEBP or GIF).');
       return;
     }
     if (this.pendingAttachment?.previewUrl) {
@@ -2949,8 +2970,55 @@ class ZentryWidget {
       previewImg.src = previewUrl;
       if (previewName) previewName.textContent = file.name;
       if (previewSize) previewSize.textContent = `${(file.size / 1024).toFixed(0)} KB · Ready to send`;
+      previewImg.style.display = '';
+      previewContainer.dataset.state = 'ready';
       previewContainer.style.display = 'flex';
     }
+  }
+
+  /**
+   * The attachment card has three states. "sending" shows a moving bar (the
+   * upload gives no byte progress, so no percentage is invented); "failed"
+   * keeps the picture and offers Retry, where it used to be an alert().
+   */
+  private setAttachmentState(state: 'ready' | 'sending' | 'failed', message?: string) {
+    const card = this.shadow?.getElementById('chatifyAttachmentPreview');
+    const size = this.shadow?.getElementById('chatifyPreviewSize');
+    if (!card) return;
+    card.dataset.state = state;
+    if (size && message) size.textContent = message;
+  }
+
+  /** A file we won't send: say why in the same card, with nothing to retry. */
+  private showAttachmentProblem(name: string, message: string) {
+    this.clearPendingAttachment();
+    const card = this.shadow?.getElementById('chatifyAttachmentPreview');
+    const img = this.shadow?.getElementById('chatifyPreviewImg') as HTMLImageElement | null;
+    const nameEl = this.shadow?.getElementById('chatifyPreviewName');
+    if (!card) return;
+    if (img) img.style.display = 'none';
+    if (nameEl) nameEl.textContent = name;
+    card.style.display = 'flex';
+    this.setAttachmentState('failed', message);
+    card.dataset.retry = 'no';
+  }
+
+  /** Mirrors the browser's own online/offline events; never guessed. */
+  private updateNetworkBanner(online: boolean) {
+    const banner = this.shadow?.getElementById('chatifyNetBanner');
+    const text = this.shadow?.getElementById('chatifyNetBannerText');
+    if (!banner || !text) return;
+    if (this.netBannerTimer) clearTimeout(this.netBannerTimer);
+    if (!online) {
+      banner.dataset.tone = 'warn';
+      text.textContent = "You're offline. Messages will send when you reconnect.";
+      banner.hidden = false;
+      return;
+    }
+    if (banner.hidden) return;
+    banner.dataset.tone = 'ok';
+    text.textContent = 'Back online.';
+    this.netBannerTimer = setTimeout(() => { banner.hidden = true; }, 2500);
   }
 
   private clearPendingAttachment() {
@@ -2959,7 +3027,11 @@ class ZentryWidget {
     }
     this.pendingAttachment = null;
     const previewContainer = this.shadow?.getElementById('chatifyAttachmentPreview');
-    if (previewContainer) previewContainer.style.display = 'none';
+    if (previewContainer) {
+      previewContainer.style.display = 'none';
+      previewContainer.dataset.state = 'ready';
+      delete previewContainer.dataset.retry;
+    }
     const input = this.shadow?.getElementById('chatifyImageInput') as HTMLInputElement | null;
     if (input) input.value = '';
   }
@@ -3475,7 +3547,7 @@ class ZentryWidget {
   }
 
   private generateCSS(): string {
-    const brand = this.config.primaryColor || '#2e5bff';
+    const brand = this.config.primaryColor || DEFAULT_BRAND_COLOR;
     // White text on anything but a very light brand colour.
     const onBrand = this.luminance(brand) > 0.62 ? '#0b0b0f' : '#ffffff';
     const brandDeep = this.shade(brand, -0.34);
@@ -3510,6 +3582,14 @@ class ZentryWidget {
         --w-line-2: #d6d6d1;
 
         --w-success: #0b7a5c;
+        --w-success-soft: #e6f6f1;
+        --w-success-line: #b8e5d7;
+        --w-warn: #8f5a06;
+        --w-warn-soft: #fdf3e2;
+        --w-warn-line: #f0d9ac;
+        --w-danger: #c0233f;
+        --w-danger-soft: #fdedf0;
+        --w-danger-line: #f7c6d0;
 
         /* Glass window (Zentry design system: the widget is one of the three
            places glass is allowed). Kept mostly opaque so text contrast holds
@@ -3742,7 +3822,7 @@ class ZentryWidget {
 
       /* Card 1: Top Message Card */
       .chatify-popup-card {
-        background: #ffffff;
+        background: var(--w-surface);
         border-radius: 18px;
         padding: 14px 16px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -3751,8 +3831,8 @@ class ZentryWidget {
         gap: 12px;
         cursor: pointer;
         transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-        border: 1px solid rgba(0, 0, 0, 0.05);
-        color: #111827;
+        border: 1px solid var(--w-line);
+        color: var(--w-ink);
       }
 
       .chatify-popup-card:hover {
@@ -3771,15 +3851,14 @@ class ZentryWidget {
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background: #5c5be5;
-        color: #ffffff;
+        background: var(--w-brand);
+        color: var(--w-on-brand);
         font-weight: 700;
         font-size: 15px;
         display: flex;
         align-items: center;
         justify-content: center;
         letter-spacing: 0.5px;
-        box-shadow: 0 2px 8px rgba(92, 91, 229, 0.32);
         overflow: hidden;
       }
 
@@ -3796,8 +3875,8 @@ class ZentryWidget {
         width: 12px;
         height: 12px;
         border-radius: 50%;
-        background: #22c55e;
-        border: 2.5px solid #ffffff;
+        background: var(--w-success);
+        border: 2.5px solid var(--w-surface);
       }
 
       .chatify-popup-content {
@@ -3817,7 +3896,7 @@ class ZentryWidget {
       .chatify-popup-title {
         font-size: 13.5px;
         font-weight: 600;
-        color: #475569;
+        color: var(--w-ink-2);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -3826,7 +3905,7 @@ class ZentryWidget {
       .chatify-popup-close {
         background: transparent;
         border: none;
-        color: #9ca3af;
+        color: var(--w-ink-3);
         cursor: pointer;
         padding: 2px;
         margin-right: -4px;
@@ -3838,14 +3917,14 @@ class ZentryWidget {
       }
 
       .chatify-popup-close:hover {
-        color: #374151;
-        background-color: #f1f5f9;
+        color: var(--w-ink);
+        background-color: var(--w-surface-3);
       }
 
       .chatify-popup-message {
         font-size: 15px;
         font-weight: 500;
-        color: #111827;
+        color: var(--w-ink);
         line-height: 1.38;
         word-break: break-word;
         display: -webkit-box;
@@ -3856,11 +3935,11 @@ class ZentryWidget {
 
       /* Card 2: Bottom Reply Bar */
       .chatify-popup-reply-bar {
-        background: #ffffff;
+        background: var(--w-surface);
         border-radius: 9999px;
         padding: 5px 6px 5px 18px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.05);
-        border: 1px solid rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--w-line);
         display: flex;
         align-items: center;
         gap: 8px;
@@ -3868,7 +3947,7 @@ class ZentryWidget {
       }
 
       .chatify-popup-reply-bar:focus-within {
-        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14), 0 0 0 2px var(--w-brand, #5c5be5);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14), 0 0 0 2px var(--w-brand);
         border-color: transparent;
       }
 
@@ -3878,14 +3957,14 @@ class ZentryWidget {
         outline: none;
         background: transparent;
         font-size: 14px;
-        color: #111827;
+        color: var(--w-ink);
         min-width: 0;
         padding: 7px 0;
         font-family: inherit;
       }
 
       .chatify-popup-input::placeholder {
-        color: #9ca3af;
+        color: var(--w-ink-3);
       }
 
       .chatify-popup-send {
@@ -3893,8 +3972,8 @@ class ZentryWidget {
         height: 36px;
         border-radius: 50%;
         border: none;
-        background: #e2e8f0;
-        color: #64748b;
+        background: var(--w-surface-3);
+        color: var(--w-ink-3);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -3904,8 +3983,8 @@ class ZentryWidget {
       }
 
       .chatify-popup-send.active {
-        background: var(--w-brand, #5c5be5);
-        color: #ffffff;
+        background: var(--w-brand);
+        color: var(--w-on-brand);
       }
 
       .chatify-popup-send:hover {
@@ -5190,6 +5269,22 @@ class ZentryWidget {
         animation: chatifyFadeIn .15s var(--w-ease);
       }
 
+      .chatify-preview-bar { display: none; height: 3px; margin-top: 5px; border-radius: 999px; background: var(--w-line); overflow: hidden; }
+      .chatify-preview-bar > span { display: block; width: 40%; height: 100%; border-radius: inherit; background: var(--w-brand); animation: chatifyIndeterminate 1.1s var(--w-ease) infinite; }
+      .chatify-attachment-preview[data-state="sending"] .chatify-preview-bar { display: block; }
+      .chatify-attachment-preview[data-state="failed"] { background: var(--w-danger-soft); border-top-color: var(--w-danger-line); }
+      .chatify-attachment-preview[data-state="failed"] .chatify-preview-size { color: var(--w-danger); font-weight: 500; white-space: normal; }
+      .chatify-preview-retry { display: none; height: 26px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--w-line-2); background: var(--w-surface); color: var(--w-ink); font-size: 12px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+      .chatify-preview-retry:hover { background: var(--w-surface-2); }
+      .chatify-attachment-preview[data-state="failed"]:not([data-retry="no"]) .chatify-preview-retry { display: inline-flex; align-items: center; }
+      @keyframes chatifyIndeterminate { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+      .chatify-net-banner { display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 12px; font-weight: 500; line-height: 1.35; flex-shrink: 0; border-top: 1px solid; }
+      .chatify-net-banner[hidden] { display: none; }
+      .chatify-net-banner[data-tone="ok"] svg { display: none; }
+      .chatify-net-banner, .chatify-net-banner[data-tone="warn"] { background: var(--w-warn-soft); color: var(--w-warn); border-color: var(--w-warn-line); }
+      .chatify-net-banner[data-tone="ok"] { background: var(--w-success-soft); color: var(--w-success); border-color: var(--w-success-line); }
+
       .chatify-preview-thumb {
         width: 38px;
         height: 38px;
@@ -5689,8 +5784,8 @@ class ZentryWidget {
 
       .chatify-bottom-nav {
         display: flex;
-        border-top: 1px solid rgba(0, 0, 0, 0.07);
-        background: rgba(255, 255, 255, 0.95);
+        border-top: 1px solid var(--w-line);
+        background: var(--w-glass);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
         padding: 6px 10px calc(8px + env(safe-area-inset-bottom, 0px));
@@ -6318,6 +6413,7 @@ class ZentryWidget {
         sendBtn.disabled = true;
         sendBtn.innerHTML = `<span style="width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;display:inline-block;animation:chatifySpin 0.8s linear infinite;"></span>`;
       }
+      this.setAttachmentState('sending', 'Sending picture…');
 
       try {
         // Shrinks the photo on the device and uploads it straight to
@@ -6327,7 +6423,7 @@ class ZentryWidget {
           visitorToken: this.visitorToken,
         });
       } catch (err: any) {
-        alert(err?.message || "Couldn't send the picture. Please try again.");
+        this.setAttachmentState('failed', err?.message || "Couldn't send the picture. Check your connection and try again.");
         if (sendBtn) {
           sendBtn.disabled = false;
           sendBtn.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`;
@@ -7742,7 +7838,7 @@ class ZentryWidget {
       }
 
       if (style === 'pill') {
-        const bg = /^#[0-9a-f]{3,8}$/i.test(this.config.primaryColor || '') ? this.config.primaryColor : '#2563eb';
+        const bg = /^#[0-9a-f]{3,8}$/i.test(this.config.primaryColor || '') ? this.config.primaryColor : DEFAULT_BRAND_COLOR;
         a.style.cssText =
           `display:inline-flex;align-items:center;justify-content:center;padding:${kind === 'mobile' ? '6px 14px' : '6px 16px'};` +
           `font-size:14px;font-weight:600;line-height:1.4;border-radius:9999px;background:${bg};color:#fff;` +

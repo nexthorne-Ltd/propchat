@@ -19,6 +19,7 @@ import {
 import { getPlatformGlobalSearchAction } from '@/app/actions/platform';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
+import { DEFAULT_BRAND_COLOR } from '@/lib/brand';
 
 interface SuperAdminCommandPaletteProps {
   open: boolean;
@@ -239,7 +240,7 @@ export function SuperAdminCommandPalette({ open, onClose }: SuperAdminCommandPal
                   <span className="flex items-center gap-2.5 min-w-0">
                     <span
                       className="w-3 h-3 rounded-full shrink-0"
-                      style={{ backgroundColor: w.brand_color || '#2563eb' }}
+                      style={{ backgroundColor: w.brand_color || DEFAULT_BRAND_COLOR }}
                     />
                     <span className="font-medium truncate">{w.name}</span>
                     <Badge tone={w.status === 'suspended' ? 'warn' : 'neutral'}>

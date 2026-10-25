@@ -1,3 +1,4 @@
+import { DEFAULT_BRAND_COLOR } from '@/lib/brand';
 /**
  * The one layout every email uses: workspace emails to customers and team
  * members, and platform emails (sign-up codes, admin invitations).
@@ -42,7 +43,7 @@ export interface EmailContent {
   footer: string;
 }
 
-const DEFAULT_ACCENT = '#2e5bff';
+const DEFAULT_ACCENT = DEFAULT_BRAND_COLOR;
 
 export function escapeHtml(value: string): string {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);

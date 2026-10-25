@@ -27,6 +27,7 @@ import {
   Globe,
   ExternalLink,
   RefreshCw,
+  RotateCcw,
   CheckCircle2,
   XCircle,
   BookOpen,
@@ -96,6 +97,10 @@ import {
 import { cn } from '@/lib/utils';
 import { NavbarPreviewModal } from '@/components/dashboard/NavbarPreviewModal';
 import { errorMessage } from '@/lib/errors/user-error';
+import { DEFAULT_BRAND_COLOR } from '@/lib/brand';
+import { SaveBar } from '@/components/settings/parts';
+import { Modal } from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
 
 interface AdminSettingsPanelProps {
   workspace: Workspace;
@@ -209,7 +214,7 @@ const ALL_TIMEZONES: string[] = (() => {
 })();
 
 const COLOR_PRESETS = [
-  '#2563eb', // Zen-try Blue
+  DEFAULT_BRAND_COLOR, // Zen-try Blue
   '#0d9488', // Teal
   '#10b981', // Emerald
   '#8b5cf6', // Violet
@@ -253,7 +258,7 @@ export function AdminSettingsPanel({
   // ──────────────────────────────────────────────────────────────────────────
   // SECTION 1: WIDGET CUSTOMIZATION STATE
   // ──────────────────────────────────────────────────────────────────────────
-  const [brandColor, setBrandColor] = useState(workspace.brand_color || '#2563eb');
+  const [brandColor, setBrandColor] = useState(workspace.brand_color || DEFAULT_BRAND_COLOR);
   const [logoUrl, setLogoUrl] = useState(workspace.logo_url || '');
   const [showLauncherLogo, setShowLauncherLogo] = useState(
     workspace.show_launcher_logo !== false
@@ -312,7 +317,7 @@ export function AdminSettingsPanel({
 
   const isWidgetDirty = useMemo(() => {
     return (
-      brandColor !== (workspace.brand_color || '#2563eb') ||
+      brandColor !== (workspace.brand_color || DEFAULT_BRAND_COLOR) ||
       logoUrl !== (workspace.logo_url || '') ||
       showLauncherLogo !== (workspace.show_launcher_logo !== false) ||
       widgetIcon !== initialWidgetIcon ||
@@ -355,8 +360,73 @@ export function AdminSettingsPanel({
     workspace,
   ]);
 
+  /* Save feedback lives in the save bar: an error stays until the next try.
+     The bar puts "unsaved changes" ahead of "Saved", so no reset is needed. */
+  const [widgetSaveError, setWidgetSaveError] = useState<string | null>(null);
+  const [widgetSaved, setWidgetSaved] = useState(false);
+  const [confirmWidgetReset, setConfirmWidgetReset] = useState(false);
+
+  const GREETING_TITLE_MAX = 60;
+  const brandHexValid = /^#[0-9a-f]{6}$/i.test(brandColor);
+  const greetingTitleTooLong = greetingTitle.length > GREETING_TITLE_MAX;
+  // The widget switches to dark text on light brand colours (luminance > 0.62
+  // in widget/src/index.ts); say so here rather than let it surprise anyone.
+  const brandUsesDarkText = useMemo(() => {
+    if (!brandHexValid) return false;
+    const n = parseInt(brandColor.slice(1), 16);
+    const lin = (v: number) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255) > 0.62;
+  }, [brandColor, brandHexValid]);
+
+  /** Puts every widget field back to what is saved (Discard). */
+  const discardWidgetChanges = () => {
+    setBrandColor(workspace.brand_color || DEFAULT_BRAND_COLOR);
+    setLogoUrl(workspace.logo_url || '');
+    setShowLauncherLogo(workspace.show_launcher_logo !== false);
+    setWidgetIcon(initialWidgetIcon);
+    setWidgetDesign(initialWidgetDesign);
+    setSecondaryColor(initialSecondaryColor);
+    setColorMode(initialColorMode);
+    setWidgetPosition(workspace.widget_position || 'right');
+    setGreetingTitle(workspace.greeting_title || 'Hi there 👋');
+    setGreetingMessage(workspace.greeting_message || "We're here to help! Send us a message and we'll reply shortly.");
+    setHelpTabLabel(workspace.help_center_tab_label || 'Help');
+    setShowHelpTab(workspace.show_help_tab !== false);
+    setLauncherOffsetBottom(workspace.launcher_offset_bottom ?? 20);
+    setLauncherOffsetSide(workspace.launcher_offset_side ?? 20);
+    setWidgetZIndex(workspace.widget_z_index ?? 2147483000);
+    setEnableProactiveWelcome(workspace.enable_proactive_welcome !== false);
+    setProactiveDelaySeconds(Math.max(8, workspace.proactive_delay_seconds ?? 8));
+    setWidgetSaveError(null);
+  };
+
+  /** Design defaults, kept unsaved until Save. The logo is the customer's and stays. */
+  const resetWidgetToDefaults = () => {
+    setBrandColor(DEFAULT_BRAND_COLOR);
+    setWidgetIcon(logoUrl && showLauncherLogo ? 'custom_logo' : 'smile_bubble');
+    setWidgetDesign(DEFAULT_WIDGET_DESIGN);
+    setSecondaryColor('');
+    setColorMode('auto');
+    setWidgetPosition('right');
+    setGreetingTitle('Hi there 👋');
+    setGreetingMessage("We're here to help! Send us a message and we'll reply shortly.");
+    setHelpTabLabel('Help');
+    setShowHelpTab(true);
+    setLauncherOffsetBottom(20);
+    setLauncherOffsetSide(20);
+    setWidgetZIndex(2147483000);
+    setEnableProactiveWelcome(true);
+    setProactiveDelaySeconds(8);
+    setConfirmWidgetReset(false);
+  };
+
   const handleSaveWidget = async () => {
+    if (!brandHexValid || greetingTitleTooLong) return;
     setSaving(true);
+    setWidgetSaveError(null);
     try {
       const res = await updateWidgetSettingsAction(workspace.id, {
         brand_color: brandColor,
@@ -380,10 +450,16 @@ export function AdminSettingsPanel({
       if (res.workspace) {
         setWorkspace(res.workspace);
         onWorkspaceUpdated?.(res.workspace);
-        showStatus('Widget customization saved successfully!');
+        // The server derives show_launcher_logo from the icon; take its answer
+        // or the form disagrees with the saved row and reads as unsaved.
+        setShowLauncherLogo(res.workspace.show_launcher_logo !== false);
+        setWidgetSaved(true);
+      } else {
+        // A save that comes back without the row stored nothing: say so.
+        setWidgetSaveError("Couldn't save: the change wasn't stored. Your changes are kept.");
       }
     } catch (err: any) {
-      showStatus(errorMessage(err, 'Failed to save widget settings'), 'error');
+      setWidgetSaveError(`Couldn't save: ${errorMessage(err, 'the server did not respond').replace(/\.+$/, '')}. Your changes are kept.`);
     } finally {
       setSaving(false);
     }
@@ -990,18 +1066,18 @@ export function AdminSettingsPanel({
           role="status"
           aria-live="polite"
           className={cn(
-            'fixed top-5 right-5 z-[9999] px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2.5 shadow-2xl border animate-rise transition-all',
+            'fixed top-5 right-5 z-[9999] px-4 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 shadow-lg border animate-toast transition-all',
             statusMessage.type === 'success'
               ? 'bg-success-soft/95 text-success border-success-line'
               : 'bg-danger-soft/95 text-danger border-danger-line'
           )}
         >
           {statusMessage.type === 'success' ? (
-            <div className="w-5 h-5 rounded-full bg-success text-white flex items-center justify-center shrink-0">
+            <div className="w-5 h-5 rounded-full bg-success text-ink-inv flex items-center justify-center shrink-0">
               <Check className="w-3.5 h-3.5 stroke-[3]" />
             </div>
           ) : (
-            <div className="w-5 h-5 rounded-full bg-danger text-white flex items-center justify-center shrink-0">
+            <div className="w-5 h-5 rounded-full bg-danger text-ink-inv flex items-center justify-center shrink-0">
               <AlertCircle className="w-3.5 h-3.5 stroke-[3]" />
             </div>
           )}
@@ -1025,9 +1101,9 @@ export function AdminSettingsPanel({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-ink tracking-tight">Admin Settings</h1>
+              <h1 className="text-lg font-bold text-ink tracking-tight">Admin settings</h1>
               <span className="text-2xs px-2 py-0.5 rounded-full bg-accent/10 text-accent font-semibold">
-                Admin Role Required
+                Admin role required
               </span>
             </div>
             <p className="text-xs text-ink-3">
@@ -1057,15 +1133,15 @@ export function AdminSettingsPanel({
       {/* Tabs Bar */}
       <div className="px-8 border-b border-line bg-surface sticky top-16 z-10 flex gap-2">
         {[
-          { id: 'widget', label: 'Widget Customization', icon: Palette },
-          { id: 'helpcenter', label: 'Help Center Branding', icon: BookOpen },
-          { id: 'domain', label: 'Custom Domains', icon: Globe },
-          { id: 'hours', label: 'Business Hours', icon: Clock },
-          { id: 'canned', label: 'Canned Replies', icon: MessageSquareText, badge: cannedResponses.length },
+          { id: 'widget', label: 'Widget customization', icon: Palette },
+          { id: 'helpcenter', label: 'Help center branding', icon: BookOpen },
+          { id: 'domain', label: 'Custom domains', icon: Globe },
+          { id: 'hours', label: 'Business hours', icon: Clock },
+          { id: 'canned', label: 'Canned replies', icon: MessageSquareText, badge: cannedResponses.length },
           { id: 'assignment', label: 'Auto-Assignment', icon: Sliders },
           { id: 'ai', label: 'AI assistant', icon: Sparkles },
           { id: 'email', label: 'Email (SMTP)', icon: Mail },
-          { id: 'snippet', label: 'Install Snippet', icon: Code },
+          { id: 'snippet', label: 'Install snippet', icon: Code },
         ].map((tab) => {
           const active = activeTab === tab.id;
           const Icon = tab.icon;
@@ -1105,28 +1181,21 @@ export function AdminSettingsPanel({
             {/* Left Column: Form Controls */}
             <div className="lg:col-span-7 space-y-6">
               {/* Header Action Bar */}
-              <div className="card p-5.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface border-2 border-line-2 shadow-xs">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-success animate-pulse shadow-xs" />
-                    <h3 className="text-lg font-extrabold text-ink tracking-tight">
-                      Live Chat Widget Configuration
-                    </h3>
-                  </div>
-                  <p className="text-ui text-ink-2 mt-0.5">
-                    Customize brand colors, logo, floating launcher button &amp; greetings in real time.
-                  </p>
-                </div>
+              <div className="flex justify-end -mb-2">
+                <Button variant="ghost" size="sm" onClick={() => setConfirmWidgetReset(true)}>
+                  <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                  Reset to defaults
+                </Button>
               </div>
 
               {/* Step 1: Brand Color & Visual Theme */}
-              <div className="card p-6 space-y-5 border-2 border-line-2 shadow-xs">
+              <div className="card p-6 space-y-5 border border-line">
                 <div className="flex items-center gap-3 border-b border-line-2 pb-4">
-                  <span className="w-7 h-7 rounded-xl bg-accent text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                  <span className="w-7 h-7 rounded-md bg-accent-soft text-accent font-semibold text-xs flex items-center justify-center shrink-0">
                     1
                   </span>
                   <div>
-                    <h4 className="text-md font-bold text-ink">Brand Color &amp; Accent</h4>
+                    <h4 className="text-md font-bold text-ink">Brand colour</h4>
                     <p className="text-xs text-ink-2 mt-0.5">
                       Themes the widget header, floating launcher button, and active chat elements.
                     </p>
@@ -1140,38 +1209,51 @@ export function AdminSettingsPanel({
                         type="color"
                         value={brandColor}
                         onChange={(e) => setBrandColor(e.target.value)}
-                        className="w-12 h-12 rounded-xl border-2 border-line-2 cursor-pointer p-0.5 bg-surface-2 shadow-xs hover:border-accent transition-colors"
+                        className="w-12 h-12 rounded-md border border-line cursor-pointer p-0.5 bg-surface-2 hover:border-accent transition-colors"
                         title="Pick custom color"
                       />
                     </div>
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={brandColor}
-                          onChange={(e) => setBrandColor(e.target.value)}
-                          placeholder="#2563eb"
-                          className="input w-36 font-mono font-bold text-sm uppercase text-ink border-2 border-line-2 focus:border-accent shadow-xs"
-                        />
-                        <span className="text-xs font-semibold text-ink-2">Custom Hex Code</span>
-                      </div>
+                      <label htmlFor="widget-brand-hex" className="field-label mb-1">Hex code</label>
+                      <input
+                        id="widget-brand-hex"
+                        type="text"
+                        value={brandColor}
+                        onChange={(e) => setBrandColor(e.target.value.trim())}
+                        placeholder={DEFAULT_BRAND_COLOR}
+                        spellCheck={false}
+                        aria-invalid={!brandHexValid}
+                        aria-describedby="widget-brand-hex-hint"
+                        className="input input-sm w-36 font-mono uppercase"
+                      />
+                      <p
+                        id="widget-brand-hex-hint"
+                        role={brandHexValid ? undefined : 'alert'}
+                        className={cn('text-xs', brandHexValid ? 'text-ink-3' : 'text-danger')}
+                      >
+                        {!brandHexValid
+                          ? 'Use a 6-digit hex colour, like #2e5bff.'
+                          : brandUsesDarkText
+                          ? 'Light colour: the widget will put dark text on it so it stays readable.'
+                          : 'Used for the header, launcher and your visitors\u2019 messages.'}
+                      </p>
                     </div>
                   </div>
 
                   {/* Preset Swatches */}
                   <div>
-                    <div className="text-xs font-extrabold text-ink-2 uppercase tracking-wider mb-2.5">
-                      Popular Brand Themes
+                    <div className="eyebrow mb-2.5">
+                      Suggested colours
                     </div>
                     <div className="flex flex-wrap items-center gap-2.5">
                       {[
-                        { color: '#2563eb', label: 'Zen-try Blue' },
+                        { color: DEFAULT_BRAND_COLOR, label: 'Zen-try Blue' },
                         { color: '#0d9488', label: 'Teal' },
                         { color: '#10b981', label: 'Emerald' },
                         { color: '#8b5cf6', label: 'Violet' },
                         { color: '#ec4899', label: 'Pink' },
                         { color: '#f97316', label: 'Orange' },
-                        { color: '#0f172a', label: 'Midnight Slate' },
+                        { color: '#0f172a', label: 'Midnight slate' },
                       ].map(({ color, label }) => {
                         const isSelected = brandColor.toLowerCase() === color.toLowerCase();
                         return (
@@ -1180,14 +1262,14 @@ export function AdminSettingsPanel({
                             type="button"
                             onClick={() => setBrandColor(color)}
                             className={cn(
-                              'flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 text-xs font-bold transition-all shadow-2xs',
+                              'flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-semibold transition-colors',
                               isSelected
-                                ? 'border-accent bg-accent/15 text-accent ring-2 ring-accent/30 shadow-xs'
+                                ? 'border-accent bg-accent/15 text-accent ring-2 ring-accent/30'
                                 : 'border-line-2 bg-surface hover:bg-surface-2 text-ink hover:border-line-3'
                             )}
                           >
                             <span
-                              className="w-3.5 h-3.5 rounded-full shrink-0 border border-black/20 shadow-xs"
+                              className="w-3.5 h-3.5 rounded-full shrink-0 border border-black/20"
                               style={{ backgroundColor: color }}
                             />
                             <span>{label}</span>
@@ -1200,9 +1282,9 @@ export function AdminSettingsPanel({
               </div>
 
               {/* Step 2: Logo & Floating Launcher Button */}
-              <div className="card p-6 space-y-6 border-2 border-line-2 shadow-xs">
+              <div className="card p-6 space-y-6 border border-line">
                 <div className="flex items-center gap-3 border-b border-line-2 pb-4">
-                  <span className="w-7 h-7 rounded-xl bg-accent text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                  <span className="w-7 h-7 rounded-md bg-accent-soft text-accent font-semibold text-xs flex items-center justify-center shrink-0">
                     2
                   </span>
                   <div>
@@ -1256,7 +1338,7 @@ export function AdminSettingsPanel({
                           onClick={() => setColorMode(m.id)}
                           className={cn(
                             'h-8 px-3 rounded-md text-xs font-medium transition-colors',
-                            colorMode === m.id ? 'bg-surface text-ink shadow-xs' : 'text-ink-3 hover:text-ink'
+                            colorMode === m.id ? 'bg-surface text-ink' : 'text-ink-3 hover:text-ink'
                           )}
                         >
                           {m.label}
@@ -1287,8 +1369,8 @@ export function AdminSettingsPanel({
                 </div>
 
                 {/* ── Logo ── */}
-                <div className="flex items-start gap-4 p-4 rounded-xl border border-line bg-surface-2">
-                  <div className="w-16 h-16 rounded-xl border border-line bg-surface grid place-items-center overflow-hidden shrink-0">
+                <div className="flex items-start gap-4 p-4 rounded-md border border-line bg-surface-2">
+                  <div className="w-16 h-16 rounded-md border border-line bg-surface grid place-items-center overflow-hidden shrink-0">
                     {logoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={logoUrl} alt="Your logo" className="w-full h-full object-cover" />
@@ -1338,13 +1420,13 @@ export function AdminSettingsPanel({
               </div>
 
               {/* Step 3: Screen Placement */}
-              <div className="card p-6 space-y-4 border-2 border-line-2 shadow-xs">
+              <div className="card p-6 space-y-4 border border-line">
                 <div className="flex items-center gap-3 border-b border-line-2 pb-4">
-                  <span className="w-7 h-7 rounded-xl bg-accent text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                  <span className="w-7 h-7 rounded-md bg-accent-soft text-accent font-semibold text-xs flex items-center justify-center shrink-0">
                     3
                   </span>
                   <div>
-                    <h4 className="text-md font-bold text-ink">Screen Placement</h4>
+                    <h4 className="text-md font-bold text-ink">Screen placement</h4>
                     <p className="text-xs text-ink-2 mt-0.5">
                       Position of the floating chat launcher on your website.
                     </p>
@@ -1355,9 +1437,9 @@ export function AdminSettingsPanel({
                   <button
                     type="button"
                     onClick={() => setWidgetPosition('right')}
-                    className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                    className={`p-4 rounded-lg border text-left transition-colors ${
                       widgetPosition === 'right'
-                        ? 'border-accent bg-accent/10 ring-2 ring-accent/30 text-ink shadow-sm'
+                        ? 'border-accent bg-accent/10 ring-2 ring-accent/30 text-ink'
                         : 'border-line-2 bg-surface hover:bg-surface-2 text-ink-2'
                     }`}
                   >
@@ -1366,11 +1448,11 @@ export function AdminSettingsPanel({
                         {widgetPosition === 'right' ? (
                           <CheckCircle2 className="w-4 h-4 text-accent" />
                         ) : (
-                          <div className="w-4 h-4 rounded-full border-2 border-line-2" />
+                          <div className="w-4 h-4 rounded-full border border-line" />
                         )}
-                        <span className="font-bold text-ui text-ink">Bottom Right</span>
+                        <span className="font-bold text-ui text-ink">Bottom right</span>
                       </div>
-                      <span className="text-2xs px-2 py-0.5 rounded-full bg-accent text-white font-extrabold shadow-2xs">
+                      <span className="text-2xs px-2 py-0.5 rounded-full bg-accent text-white font-semibold">
                         Recommended
                       </span>
                     </div>
@@ -1382,9 +1464,9 @@ export function AdminSettingsPanel({
                   <button
                     type="button"
                     onClick={() => setWidgetPosition('left')}
-                    className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                    className={`p-4 rounded-lg border text-left transition-colors ${
                       widgetPosition === 'left'
-                        ? 'border-accent bg-accent/10 ring-2 ring-accent/30 text-ink shadow-sm'
+                        ? 'border-accent bg-accent/10 ring-2 ring-accent/30 text-ink'
                         : 'border-line-2 bg-surface hover:bg-surface-2 text-ink-2'
                     }`}
                   >
@@ -1393,9 +1475,9 @@ export function AdminSettingsPanel({
                         {widgetPosition === 'left' ? (
                           <CheckCircle2 className="w-4 h-4 text-accent" />
                         ) : (
-                          <div className="w-4 h-4 rounded-full border-2 border-line-2" />
+                          <div className="w-4 h-4 rounded-full border border-line" />
                         )}
-                        <span className="font-bold text-ui text-ink">Bottom Left</span>
+                        <span className="font-bold text-ui text-ink">Bottom left</span>
                       </div>
                       <span className="text-2xs px-2 py-0.5 rounded-full bg-surface-3 text-ink-2 font-bold border border-line-2">
                         Alternate
@@ -1407,10 +1489,10 @@ export function AdminSettingsPanel({
                   </button>
                 </div>
 
-                {/* Launcher Offsets & Widget Z-Index */}
+                {/* Launcher Offsets & Z-index */}
                 <div className="pt-4 border-t border-line-2 space-y-3.5">
                   <div>
-                    <h5 className="text-ui font-bold text-ink">Launcher Offsets &amp; Z-Index</h5>
+                    <h5 className="text-ui font-bold text-ink">Launcher position and layering</h5>
                     <p className="text-xs text-ink-2">
                       Adjust exact pixel spacing and stack order so the chat button never blocks your site's navigation or buttons.
                     </p>
@@ -1418,7 +1500,7 @@ export function AdminSettingsPanel({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="field-label text-ink font-semibold text-xs mb-1 block">
-                        Bottom Offset (px)
+                        Bottom offset (px)
                       </label>
                       <input
                         type="number"
@@ -1426,7 +1508,7 @@ export function AdminSettingsPanel({
                         max={300}
                         value={launcherOffsetBottom}
                         onChange={(e) => setLauncherOffsetBottom(Number(e.target.value))}
-                        className="input text-xs border-2 border-line-2 focus:border-accent text-ink font-semibold"
+                        className="input text-xs border border-line focus:border-accent text-ink font-semibold"
                         placeholder="20"
                       />
                       <p className="text-2xs text-ink-2 mt-1">Default: 20px</p>
@@ -1434,7 +1516,7 @@ export function AdminSettingsPanel({
 
                     <div>
                       <label className="field-label text-ink font-semibold text-xs mb-1 block">
-                        Side Offset (px)
+                        Side offset (px)
                       </label>
                       <input
                         type="number"
@@ -1442,7 +1524,7 @@ export function AdminSettingsPanel({
                         max={300}
                         value={launcherOffsetSide}
                         onChange={(e) => setLauncherOffsetSide(Number(e.target.value))}
-                        className="input text-xs border-2 border-line-2 focus:border-accent text-ink font-semibold"
+                        className="input text-xs border border-line focus:border-accent text-ink font-semibold"
                         placeholder="20"
                       />
                       <p className="text-2xs text-ink-2 mt-1">Default: 20px</p>
@@ -1450,7 +1532,7 @@ export function AdminSettingsPanel({
 
                     <div>
                       <label className="field-label text-ink font-semibold text-xs mb-1 block">
-                        Widget Z-Index
+                        Z-index
                       </label>
                       <input
                         type="number"
@@ -1458,7 +1540,7 @@ export function AdminSettingsPanel({
                         max={2147483647}
                         value={widgetZIndex}
                         onChange={(e) => setWidgetZIndex(Number(e.target.value))}
-                        className="input text-xs border-2 border-line-2 focus:border-accent text-ink font-semibold"
+                        className="input text-xs border border-line focus:border-accent text-ink font-semibold"
                         placeholder="2147483000"
                       />
                       <p className="text-2xs text-ink-2 mt-1">Default: 2147483000</p>
@@ -1468,13 +1550,13 @@ export function AdminSettingsPanel({
               </div>
 
               {/* Step 4: Greetings & Welcome Message */}
-              <div className="card p-6 space-y-4 border-2 border-line-2 shadow-xs">
+              <div className="card p-6 space-y-4 border border-line">
                 <div className="flex items-center gap-3 border-b border-line-2 pb-4">
-                  <span className="w-7 h-7 rounded-xl bg-accent text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                  <span className="w-7 h-7 rounded-md bg-accent-soft text-accent font-semibold text-xs flex items-center justify-center shrink-0">
                     4
                   </span>
                   <div>
-                    <h4 className="text-md font-bold text-ink">Greeting &amp; Welcome Message</h4>
+                    <h4 className="text-md font-bold text-ink">Greeting and welcome message</h4>
                     <p className="text-xs text-ink-2 mt-0.5">
                       The first messages visitors read when opening the live chat.
                     </p>
@@ -1483,35 +1565,47 @@ export function AdminSettingsPanel({
 
                 <div className="space-y-3.5">
                   <div>
-                    <label className="field-label text-ink font-bold text-ui">Greeting Title</label>
+                    <label htmlFor="widget-greeting-title" className="field-label">Welcome title</label>
                     <input
+                      id="widget-greeting-title"
                       type="text"
                       value={greetingTitle}
                       onChange={(e) => setGreetingTitle(e.target.value)}
                       placeholder="Hi there 👋"
-                      className="input text-sm font-semibold border-2 border-line-2 focus:border-accent text-ink"
+                      aria-invalid={greetingTitleTooLong}
+                      aria-describedby="widget-greeting-title-hint"
+                      className="input"
                     />
+                    <p
+                      id="widget-greeting-title-hint"
+                      role={greetingTitleTooLong ? 'alert' : undefined}
+                      className={cn('mt-1 text-xs tabular-nums', greetingTitleTooLong ? 'text-danger' : 'text-ink-3')}
+                    >
+                      {greetingTitleTooLong
+                        ? `Keep it to ${GREETING_TITLE_MAX} characters (${greetingTitle.length}/${GREETING_TITLE_MAX}).`
+                        : `${greetingTitle.length}/${GREETING_TITLE_MAX}`}
+                    </p>
                   </div>
                   <div>
-                    <label className="field-label text-ink font-bold text-ui">Welcome Message Text</label>
+                    <label className="field-label">Welcome text</label>
                     <textarea
                       rows={3}
                       value={greetingMessage}
                       onChange={(e) => setGreetingMessage(e.target.value)}
                       placeholder={`Welcome to ${workspace.name || 'our support'}`}
-                      className="input resize-none text-ui leading-relaxed border-2 border-line-2 focus:border-accent text-ink"
+                      className="input resize-none text-ui leading-relaxed border border-line focus:border-accent text-ink"
                     />
                     <p className="text-2xs text-ink-2 mt-1">
                       Customise the welcome message sent when visitors start a conversation.
                     </p>
                   </div>
 
-                  {/* Proactive Welcome Bubble Setting */}
-                  <div className="p-4 rounded-xl border-2 border-line-2 bg-surface-2/70 space-y-3">
+                  {/* Proactive welcome bubble Setting */}
+                  <div className="p-4 rounded-md border border-line bg-surface-2/70 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5 pr-4">
                         <label className="text-ui font-bold text-ink cursor-pointer" htmlFor="toggle-proactive-welcome">
-                          Proactive Welcome Bubble
+                          Proactive welcome bubble
                         </label>
                         <p className="text-xs text-ink-2">
                           Show an unobtrusive bubble invitation next to the launcher. Automatically delayed and suppressed when host page modals or overlays are open.
@@ -1525,7 +1619,7 @@ export function AdminSettingsPanel({
                           onChange={(e) => setEnableProactiveWelcome(e.target.checked)}
                           className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-line-2 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line-2 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent shadow-xs"></div>
+                        <div className="w-11 h-6 bg-line-2 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line-2 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                       </label>
                     </div>
 
@@ -1533,7 +1627,7 @@ export function AdminSettingsPanel({
                       <div className="pt-2 border-t border-line-2 flex items-center justify-between gap-4">
                         <div>
                           <label className="text-xs font-semibold text-ink block">
-                            Display Delay (Seconds)
+                            Delay (seconds)
                           </label>
                           <span className="text-2xs text-ink-2">Minimum delay is 8 seconds after page load</span>
                         </div>
@@ -1543,7 +1637,7 @@ export function AdminSettingsPanel({
                           max={120}
                           value={proactiveDelaySeconds}
                           onChange={(e) => setProactiveDelaySeconds(Math.max(8, Number(e.target.value)))}
-                          className="input w-24 text-xs font-semibold text-center border-2 border-line-2 focus:border-accent text-ink"
+                          className="input w-24 text-xs font-semibold text-center border border-line focus:border-accent text-ink"
                         />
                       </div>
                     )}
@@ -1552,13 +1646,13 @@ export function AdminSettingsPanel({
               </div>
 
               {/* Step 5: In-Widget Self-Service Help Desk Tab */}
-              <div className="card p-6 space-y-4 border-2 border-line-2 shadow-xs">
+              <div className="card p-6 space-y-4 border border-line">
                 <div className="flex items-center gap-3 border-b border-line-2 pb-4">
-                  <span className="w-7 h-7 rounded-xl bg-accent text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                  <span className="w-7 h-7 rounded-md bg-accent-soft text-accent font-semibold text-xs flex items-center justify-center shrink-0">
                     5
                   </span>
                   <div>
-                    <h4 className="text-md font-bold text-ink">Self-Service Help Center Tab</h4>
+                    <h4 className="text-md font-bold text-ink">Help center tab</h4>
                     <p className="text-xs text-ink-2 mt-0.5">
                       Allow visitors to browse knowledge base articles directly inside the chat window.
                     </p>
@@ -1566,9 +1660,9 @@ export function AdminSettingsPanel({
                 </div>
 
                 <div className="space-y-3.5">
-                  <div className="flex items-center justify-between p-4 rounded-xl border-2 border-line-2 bg-surface-2/70 shadow-2xs">
+                  <div className="flex items-center justify-between p-4 rounded-md border border-line bg-surface-2/70">
                     <div>
-                      <div className="text-ui font-bold text-ink">Show Help Tab in Widget</div>
+                      <div className="text-ui font-bold text-ink">Show the help tab</div>
                       <p className="text-xs text-ink-2">
                         Visitors can search helpful articles without leaving the chat launcher.
                       </p>
@@ -1580,31 +1674,31 @@ export function AdminSettingsPanel({
                         onChange={(e) => setShowHelpTab(e.target.checked)}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-line-2 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line-2 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent shadow-xs"></div>
+                      <div className="w-11 h-6 bg-line-2 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line-2 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                     </label>
                   </div>
 
                   <div>
-                    <label className="field-label text-ink font-bold text-ui">Help Tab Custom Button Label</label>
+                    <label className="field-label">Help tab label</label>
                     <input
                       type="text"
                       value={helpTabLabel}
                       onChange={(e) => setHelpTabLabel(e.target.value)}
                       placeholder="e.g. Help, FAQs, Guides"
-                      className="input text-sm border-2 border-line-2 focus:border-accent text-ink font-semibold"
+                      className="input text-sm border border-line focus:border-accent text-ink font-semibold"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Step 6: Widget Visibility & Device Display Rules */}
-              <div className="card p-6 space-y-4 border-2 border-line-2 shadow-xs">
+              <div className="card p-6 space-y-4 border border-line">
                 <div className="flex items-center gap-3 border-b border-line-2 pb-4">
-                  <span className="w-7 h-7 rounded-xl bg-accent text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                  <span className="w-7 h-7 rounded-md bg-accent-soft text-accent font-semibold text-xs flex items-center justify-center shrink-0">
                     6
                   </span>
                   <div>
-                    <h4 className="text-md font-bold text-ink">Widget Visibility &amp; Device Rules</h4>
+                    <h4 className="text-md font-bold text-ink">Visibility and devices</h4>
                     <p className="text-xs text-ink-2 mt-0.5">
                       Control which devices show the widget and configure live presence visibility.
                     </p>
@@ -1614,15 +1708,15 @@ export function AdminSettingsPanel({
                 <div className="space-y-4">
                   {/* Device Visibility Selector */}
                   <div>
-                    <label className="field-label text-ink font-bold text-ui mb-2.5 flex items-center justify-between">
-                      <span>Device Visibility</span>
-                      <span className="text-xs text-accent font-semibold">Active: {widgetVisibilityDevice === 'all' ? 'All Devices' : widgetVisibilityDevice === 'desktop' ? 'Desktop Only' : 'Mobile Only'}</span>
+                    <label className="field-label mb-2.5 flex items-center justify-between">
+                      <span>Show on</span>
+                      <span className="text-xs text-accent font-semibold">Active: {widgetVisibilityDevice === 'all' ? 'All devices' : widgetVisibilityDevice === 'desktop' ? 'Desktop only' : 'Mobile only'}</span>
                     </label>
                     <div className="grid grid-cols-3 gap-2.5">
                       {[
-                        { id: 'all', label: 'All Devices', sub: 'Desktop + Mobile', icon: Monitor },
-                        { id: 'desktop', label: 'Desktop Only', sub: 'Laptops & PCs', icon: Laptop },
-                        { id: 'mobile', label: 'Mobile Only', sub: 'Phones & Tablets', icon: Smartphone },
+                        { id: 'all', label: 'All devices', sub: 'Desktop + Mobile', icon: Monitor },
+                        { id: 'desktop', label: 'Desktop only', sub: 'Laptops & PCs', icon: Laptop },
+                        { id: 'mobile', label: 'Mobile only', sub: 'Phones & Tablets', icon: Smartphone },
                       ].map((item) => {
                         const Icon = item.icon;
                         const isSelected = widgetVisibilityDevice === item.id;
@@ -1636,9 +1730,9 @@ export function AdminSettingsPanel({
                               if (item.id === 'desktop') setPreviewDevice('desktop');
                             }}
                             className={cn(
-                              'p-3 rounded-xl border-2 text-center flex flex-col items-center gap-1.5 transition-all shadow-2xs',
+                              'p-3 rounded-md border text-center flex flex-col items-center gap-1.5 transition-colors',
                               isSelected
-                                ? 'border-accent bg-accent/15 ring-2 ring-accent/30 text-accent font-bold shadow-xs'
+                                ? 'border-accent bg-accent-soft text-accent font-bold'
                                 : 'border-line-2 bg-surface hover:bg-surface-2 text-ink-2 hover:text-ink'
                             )}
                           >
@@ -1652,10 +1746,10 @@ export function AdminSettingsPanel({
                   </div>
 
                   {/* Online Presence Status Toggle */}
-                  <div className="flex items-center justify-between p-4 rounded-xl border-2 border-line-2 bg-surface-2/80 shadow-2xs">
+                  <div className="flex items-center justify-between p-4 rounded-md border border-line bg-surface-2/80">
                     <div>
                       <div className="text-ui font-bold text-ink flex items-center gap-2">
-                        <span>Show Live Presence Indicator</span>
+                        <span>Show online status</span>
                         <span className="w-2 h-2 rounded-full bg-success animate-pulse inline-block" />
                       </div>
                       <p className="text-xs text-ink-2 mt-0.5">
@@ -1669,46 +1763,52 @@ export function AdminSettingsPanel({
                         onChange={(e) => setShowOnlineStatusBadge(e.target.checked)}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-line-2 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line-2 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent shadow-xs"></div>
+                      <div className="w-11 h-6 bg-line-2 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line-2 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
                     </label>
                   </div>
                 </div>
               </div>
 
-              {/* Slim Sticky Footer Bar */}
-              <div className="sticky bottom-0 z-20 px-6 py-3 border-t border-line bg-surface flex items-center justify-between gap-4 shadow-sm -mx-6 md:-mx-8">
-                <div className="flex items-center gap-2 text-xs text-ink-2 truncate">
-                  <Sparkles className="w-3.5 h-3.5 text-accent shrink-0" />
-                  <span className="truncate">Changes apply to your website immediately after clicking save.</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSaveWidget}
-                  disabled={!isWidgetDirty || saving}
-                  className="btn btn-sm btn-primary gap-2 shadow-xs font-semibold px-4 py-2 shrink-0 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {saving ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Saving…</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Save Changes</span>
-                    </>
-                  )}
-                </button>
+              <div className="relative z-20">
+                <SaveBar
+                  dirty={isWidgetDirty}
+                  saving={saving}
+                  saved={widgetSaved}
+                  error={
+                    widgetSaveError ??
+                    (!brandHexValid ? 'Fix the brand colour before saving.' : greetingTitleTooLong ? 'Shorten the welcome title before saving.' : null)
+                  }
+                  onSave={handleSaveWidget}
+                  onDiscard={discardWidgetChanges}
+                  disabled={!brandHexValid || greetingTitleTooLong}
+                  saveLabel={widgetSaveError ? 'Try again' : 'Save changes'}
+                />
               </div>
+              <Modal
+                open={confirmWidgetReset}
+                title="Reset the widget to its defaults?"
+                onClose={() => setConfirmWidgetReset(false)}
+                footer={
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setConfirmWidgetReset(false)}>Cancel</Button>
+                    <Button variant="primary" size="sm" onClick={resetWidgetToDefaults}>Reset to defaults</Button>
+                  </>
+                }
+              >
+                <p className="text-sm text-ink-2">
+                  Colour, design, launcher, position and greeting go back to the defaults. Your logo stays.
+                  Nothing changes on your site until you save.
+                </p>
+              </Modal>
             </div>
 
             {/* Right Column: Interactive Live Preview with Realistic Browser Frame */}
             <div className="lg:col-span-5 sticky top-28 space-y-3">
-              <div className="panel p-4 space-y-3 bg-surface border-2 border-line-2 shadow-md">
+              <div className="panel p-4 space-y-3 bg-surface border border-line">
                 <div className="flex items-center justify-between border-b border-line-2 pb-2.5">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-accent" />
-                    <span className="text-sm font-extrabold text-ink">Interactive Live Preview</span>
+                    <span className="text-sm font-semibold text-ink">Live preview</span>
                   </div>
 
                   {/* Device Toggle + Open/Close */}
@@ -1720,7 +1820,7 @@ export function AdminSettingsPanel({
                         className={cn(
                           'p-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1',
                           previewDevice === 'desktop'
-                            ? 'bg-surface text-accent shadow-xs'
+                            ? 'bg-surface text-accent'
                             : 'text-ink-2 hover:text-ink'
                         )}
                         title="Desktop view"
@@ -1734,7 +1834,7 @@ export function AdminSettingsPanel({
                         className={cn(
                           'p-1 rounded-md text-2xs font-bold transition-all flex items-center gap-1',
                           previewDevice === 'mobile'
-                            ? 'bg-surface text-accent shadow-xs'
+                            ? 'bg-surface text-accent'
                             : 'text-ink-2 hover:text-ink'
                         )}
                         title="Mobile view"
@@ -1757,18 +1857,18 @@ export function AdminSettingsPanel({
                 {/* Realistic Simulated Webpage Canvas */}
                 <div
                   className={cn(
-                    'relative h-[530px] rounded-2xl bg-canvas border-2 border-line-2 overflow-hidden flex flex-col justify-between shadow-inner transition-all duration-300',
+                    'relative h-[530px] rounded-2xl bg-canvas border border-line overflow-hidden flex flex-col justify-between transition-all duration-300',
                     previewDevice === 'mobile' ? 'max-w-[340px] mx-auto ring-4 ring-black/10' : 'w-full'
                   )}
                 >
                   {/* Browser Window Title Bar */}
-                  <div className="h-8.5 bg-surface border-b border-line-2 px-3 flex items-center gap-2 shrink-0 select-none shadow-2xs">
+                  <div className="h-8.5 bg-surface border-b border-line-2 px-3 flex items-center gap-2 shrink-0 select-none">
                     <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-danger inline-block shadow-2xs" />
-                      <span className="w-2.5 h-2.5 rounded-full bg-warn inline-block shadow-2xs" />
-                      <span className="w-2.5 h-2.5 rounded-full bg-success inline-block shadow-2xs" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-danger inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-warn inline-block" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-success inline-block" />
                     </div>
-                    <div className="flex-1 max-w-[220px] mx-auto h-5.5 rounded-md bg-surface-2 border border-line-2 px-2.5 flex items-center justify-center gap-1.5 text-2xs font-mono text-ink font-semibold truncate shadow-2xs">
+                    <div className="flex-1 max-w-[220px] mx-auto h-5.5 rounded-md bg-surface-2 border border-line-2 px-2.5 flex items-center justify-center gap-1.5 text-2xs font-mono text-ink font-semibold truncate">
                       <Globe className="w-3 h-3 text-accent shrink-0" />
                       <span className="truncate">{cleanDomain(workspace.website_url) || 'yourwebsite.com'}</span>
                     </div>
@@ -1779,12 +1879,12 @@ export function AdminSettingsPanel({
                     <div className="flex items-center justify-between pb-2 border-b-2 border-line-2">
                       <div className="flex items-center gap-2">
                         <div
-                          className="w-6 h-6 rounded-lg flex items-center justify-center text-2xs text-white font-extrabold shadow-xs"
+                          className="w-6 h-6 rounded-lg flex items-center justify-center text-2xs text-white font-semibold"
                           style={{ backgroundColor: brandColor }}
                         >
                           {(workspace.name || 'W').charAt(0)}
                         </div>
-                        <span className="font-extrabold text-ui text-ink">{workspace.name}</span>
+                        <span className="font-semibold text-ui text-ink">{workspace.name}</span>
                       </div>
                       <div className="flex gap-2.5 text-2xs text-ink-2 font-semibold">
                         <span className="text-ink font-bold border-b border-ink">Home</span>
@@ -1793,18 +1893,18 @@ export function AdminSettingsPanel({
                       </div>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-surface border-2 border-line-2 shadow-xs space-y-2 mt-2">
+                    <div className="p-4 rounded-md bg-surface border border-line space-y-2 mt-2">
                       <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/15 border border-success/30 text-2xs font-bold text-success">
                         <span className="w-1.5 h-1.5 rounded-full bg-success inline-block" />
-                        <span>Support Team Available</span>
+                        <span>Support team available</span>
                       </div>
-                      <div className="font-extrabold text-sm text-ink leading-tight">Welcome to our Online Store</div>
+                      <div className="font-semibold text-sm text-ink leading-tight">Welcome to our Online Store</div>
                       <p className="text-xs text-ink-2 leading-relaxed font-normal">
                         Have a question about an order, shipment, or feature? Chat with our team in real-time.
                       </p>
                       <div className="pt-1 flex gap-2">
                         <div
-                          className="px-3 py-1.5 rounded-lg text-2xs font-bold text-white shadow-xs cursor-default"
+                          className="px-3 py-1.5 rounded-lg text-2xs font-bold text-white cursor-default"
                           style={{ backgroundColor: brandColor }}
                         >
                           Explore Products
@@ -1886,7 +1986,7 @@ export function AdminSettingsPanel({
               <div className="card p-6 space-y-5">
                 <div className="flex items-center justify-between border-b border-line pb-4">
                   <div>
-                    <h3 className="text-md font-semibold text-ink">Help Center Identity</h3>
+                    <h3 className="text-md font-semibold text-ink">Help center identity</h3>
                     <p className="text-xs text-ink-3">
                       Customize your public knowledge base branding, titles, and messaging.
                     </p>
@@ -1899,21 +1999,21 @@ export function AdminSettingsPanel({
                       className="btn btn-xs btn-secondary gap-1"
                     >
                       <ExternalLink className="w-3 h-3" />
-                      <span>Live Site</span>
+                      <span>Live site</span>
                     </a>
                     <button
                       onClick={handleSaveHelpCenter}
                       disabled={!isHelpCenterDirty || savingHelpCenter}
                       className="btn btn-sm btn-primary gap-1.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {savingHelpCenter ? 'Saving…' : 'Save Changes'}
+                      {savingHelpCenter ? 'Saving…' : 'Save changes'}
                     </button>
                   </div>
                 </div>
 
                 {/* Help Center Title */}
                 <div>
-                  <label className="field-label">Help Center Title</label>
+                  <label className="field-label">Help center title</label>
                   <input
                     type="text"
                     value={helpCenterTitle}
@@ -1943,7 +2043,7 @@ export function AdminSettingsPanel({
 
                 {/* Custom Logo */}
                 <div>
-                  <label className="field-label">Help Center Logo</label>
+                  <label className="field-label">Help center logo</label>
                   <div className="flex items-start gap-4">
                     <div className="w-14 h-14 rounded-2xl border border-line bg-surface-2 flex items-center justify-center overflow-hidden shrink-0">
                       {helpCenterLogoUrl || logoUrl ? (
@@ -1965,7 +2065,7 @@ export function AdminSettingsPanel({
                       <div className="flex items-center gap-2">
                         <label className="btn btn-xs btn-secondary cursor-pointer inline-flex items-center gap-1.5">
                           <Upload className="w-3.5 h-3.5" />
-                          <span>Upload Logo</span>
+                          <span>Upload logo</span>
                           <input
                             type="file"
                             accept="image/*"
@@ -1979,7 +2079,7 @@ export function AdminSettingsPanel({
                             onClick={() => setHelpCenterLogoUrl(logoUrl)}
                             className="btn btn-xs btn-ghost text-ink-3 hover:text-ink text-2xs"
                           >
-                            Use Main Workspace Logo
+                            Use main workspace logo
                           </button>
                         )}
                         {helpCenterLogoUrl && (
@@ -2091,7 +2191,7 @@ export function AdminSettingsPanel({
               {/* Card 2: Header Navigation Links */}
               <div className="card p-6 space-y-5">
                 <div className="border-b border-line pb-4">
-                  <h3 className="text-md font-semibold text-ink">Header Navigation Links</h3>
+                  <h3 className="text-md font-semibold text-ink">Header navigation links</h3>
                   <p className="text-xs text-ink-3">
                     Add custom links in the Help Center navigation bar (e.g. to your main website, API docs, or status page).
                   </p>
@@ -2117,7 +2217,7 @@ export function AdminSettingsPanel({
                               ({link.url})
                             </span>
                             <span className="text-2xs px-1.5 py-0.5 rounded bg-surface border border-line text-ink-3 font-mono">
-                              {link.target === '_self' ? 'Same Tab' : 'New Tab'}
+                              {link.target === '_self' ? 'Same tab' : 'New tab'}
                             </span>
                           </div>
                           <button
@@ -2136,10 +2236,10 @@ export function AdminSettingsPanel({
 
                 {/* Add Link Form */}
                 <div className="pt-2 border-t border-line/60 space-y-3">
-                  <h4 className="text-ui font-semibold text-ink">Add Navigation Link</h4>
+                  <h4 className="text-ui font-semibold text-ink">Add navigation link</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
                     <div className="sm:col-span-4 space-y-1">
-                      <label className="text-2xs font-medium text-ink-3">Link Label</label>
+                      <label className="text-2xs font-medium text-ink-3">Link label</label>
                       <input
                         type="text"
                         value={newLinkLabel}
@@ -2166,7 +2266,7 @@ export function AdminSettingsPanel({
                         className="btn btn-sm btn-secondary w-full gap-1 text-xs"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>Add Link</span>
+                        <span>Add link</span>
                       </button>
                     </div>
                   </div>
@@ -2178,7 +2278,7 @@ export function AdminSettingsPanel({
             <div className="lg:col-span-5 sticky top-32 space-y-3">
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-semibold text-ink uppercase tracking-wider">
-                  Live Preview
+                  Live preview
                 </span>
                 <span className="text-2xs font-medium px-2 py-0.5 rounded-full bg-success/10 text-success border border-success/20">
                   Updates in Real Time
@@ -2186,7 +2286,7 @@ export function AdminSettingsPanel({
               </div>
 
               {/* Mock Browser Container */}
-              <div className="rounded-2xl border border-line bg-surface shadow-md overflow-hidden text-xs">
+              <div className="card overflow-hidden text-xs">
                 {/* Browser Top Bar */}
                 <div className="px-3 py-2 bg-surface-2 border-b border-line flex items-center gap-2">
                   <div className="flex items-center gap-1.5">
@@ -2233,7 +2333,7 @@ export function AdminSettingsPanel({
                       className="px-2 py-1 rounded-md text-white text-2xs font-semibold"
                       style={{ backgroundColor: brandColor }}
                     >
-                      Ask Support
+                      Ask support
                     </span>
                   </div>
                 </div>
@@ -2245,7 +2345,7 @@ export function AdminSettingsPanel({
                     background: `radial-gradient(ellipse 90% 60% at 50% -20%, ${brandColor}25, transparent 80%)`,
                   }}
                 >
-                  <h4 className="text-base font-extrabold text-ink tracking-tight">
+                  <h4 className="text-base font-semibold text-ink tracking-tight">
                     Advice and answers from the {helpCenterTitle || workspace.name} Team
                   </h4>
                   <p className="text-xs text-ink-2 mt-1.5 max-w-xs mx-auto leading-relaxed">
@@ -2266,7 +2366,7 @@ export function AdminSettingsPanel({
                   <div className="grid grid-cols-2 gap-2">
                     <div className="p-2.5 rounded-xl border border-line bg-surface space-y-1">
                       <div className="text-sm">📚</div>
-                      <div className="text-2xs font-bold text-ink truncate">Getting Started</div>
+                      <div className="text-2xs font-bold text-ink truncate">Getting started</div>
                       <div className="text-2xs text-ink-3">3 articles</div>
                     </div>
                     <div className="p-2.5 rounded-xl border border-line bg-surface space-y-1">
@@ -2295,7 +2395,7 @@ export function AdminSettingsPanel({
             <div className="card p-6 space-y-6">
               <div className="flex items-start justify-between border-b border-line pb-4">
                 <div>
-                  <h3 className="text-base font-semibold text-ink">Operational Business Hours</h3>
+                  <h3 className="text-base font-semibold text-ink">Operational business hours</h3>
                   <p className="text-xs text-ink-3 mt-0.5">
                     Define when your support agents are active. Outside these hours, the chat widget automatically displays an "Offline" message and prompts visitors to leave their email.
                   </p>
@@ -2312,7 +2412,7 @@ export function AdminSettingsPanel({
                     disabled={!isHoursDirty || saving}
                     className="btn btn-sm btn-primary gap-1.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {saving ? 'Saving…' : 'Save Schedule'}
+                    {saving ? 'Saving…' : 'Save schedule'}
                   </button>
                 </div>
               </div>
@@ -2320,7 +2420,7 @@ export function AdminSettingsPanel({
               {/* Master Toggle */}
               <div className="flex items-center justify-between p-4 rounded-xl bg-surface-2 border border-line">
                 <div className="space-y-0.5">
-                  <div className="text-ui font-semibold text-ink">Enforce Business Hours</div>
+                  <div className="text-ui font-semibold text-ink">Enforce business hours</div>
                   <div className="text-xs text-ink-3">
                     Automatically switch widget status to Offline outside the scheduled times.
                   </div>
@@ -2351,7 +2451,7 @@ export function AdminSettingsPanel({
                   </div>
 
                   {tzDropdownOpen && (
-                    <div className="absolute left-0 top-full mt-1.5 w-full bg-surface border border-line rounded-xl shadow-xl z-30 p-2 space-y-2 animate-rise">
+                    <div className="popover absolute left-0 top-full mt-1.5 w-full z-30 p-2 space-y-2 animate-fade">
                       <div className="relative">
                         <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" />
                         <input
@@ -2481,7 +2581,7 @@ export function AdminSettingsPanel({
                   className="btn btn-sm btn-primary gap-1.5 shadow-xs"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>New Canned Reply</span>
+                  <span>New canned reply</span>
                 </button>
               </div>
 
@@ -2577,10 +2677,10 @@ export function AdminSettingsPanel({
             {/* Create/Edit Modal */}
             {cannedModalOpen && (
               <div className="fixed inset-0 bg-overlay flex items-center justify-center p-4 z-50 animate-fade">
-                <div className="card max-w-lg w-full p-6 space-y-5 animate-rise shadow-2xl">
+                <div className="card max-w-lg w-full p-6 space-y-5 animate-pop shadow-xl rounded-2xl">
                   <div className="flex items-center justify-between border-b border-line pb-3">
                     <h3 className="text-base font-semibold text-ink">
-                      {editingCannedId ? 'Edit Canned Response' : 'New Canned Response'}
+                      {editingCannedId ? 'Edit canned response' : 'New canned response'}
                     </h3>
                     <button
                       onClick={() => setCannedModalOpen(false)}
@@ -2617,7 +2717,7 @@ export function AdminSettingsPanel({
                     </div>
 
                     <div>
-                      <label className="field-label">Internal Title</label>
+                      <label className="field-label">Internal title</label>
                       <input
                         type="text"
                         required
@@ -2629,7 +2729,7 @@ export function AdminSettingsPanel({
                     </div>
 
                     <div>
-                      <label className="field-label">Message Content</label>
+                      <label className="field-label">Message content</label>
                       <textarea
                         rows={4}
                         required
@@ -2649,7 +2749,7 @@ export function AdminSettingsPanel({
                         Cancel
                       </button>
                       <button type="submit" className="btn btn-sm btn-primary">
-                        {editingCannedId ? 'Save Changes' : 'Create Shortcut'}
+                        {editingCannedId ? 'Save changes' : 'Create shortcut'}
                       </button>
                     </div>
                   </form>
@@ -2668,7 +2768,7 @@ export function AdminSettingsPanel({
               <div className="flex items-center justify-between border-b border-line pb-4">
                 <div>
                   <h3 className="text-base font-semibold text-ink">
-                    Round-Robin Auto-Assignment Rules
+                    Round-Robin Auto-Assignment rules
                   </h3>
                   <p className="text-xs text-ink-3 mt-0.5">
                     Automatically balance incoming customer conversations among online team members.
@@ -2679,7 +2779,7 @@ export function AdminSettingsPanel({
                   disabled={!isAutoAssignDirty || saving}
                   className="btn btn-sm btn-primary gap-1.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {saving ? 'Saving…' : 'Save Rules'}
+                  {saving ? 'Saving…' : 'Save rules'}
                 </button>
               </div>
 
@@ -2687,7 +2787,7 @@ export function AdminSettingsPanel({
               <div className="flex items-center justify-between p-4 rounded-xl bg-surface-2 border border-line">
                 <div className="space-y-0.5">
                   <div className="text-ui font-semibold text-ink">
-                    Enable Round-Robin Distribution
+                    Enable Round-Robin distribution
                   </div>
                   <div className="text-xs text-ink-3">
                     New unassigned conversations are assigned to the online agent with the lowest open ticket count.
@@ -2708,7 +2808,7 @@ export function AdminSettingsPanel({
 
               {/* Max Active Conversations Cap */}
               <div className="space-y-2">
-                <label className="field-label">Max Active Conversations per Agent</label>
+                <label className="field-label">Max active conversations per agent</label>
                 <div className="flex items-center gap-3">
                   <input
                     type="number"
@@ -2742,7 +2842,7 @@ export function AdminSettingsPanel({
                 <div>
                   <h3 className="text-base font-semibold text-ink flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-accent" />
-                    AI Assistant & Knowledge Base Agent
+                    AI assistant & knowledge base agent
                   </h3>
                   <p className="text-xs text-ink-3 mt-0.5">
                     Unified AI support assistant and autonomous knowledge base agent across website live chat and omnichannel integrations.
@@ -2758,7 +2858,7 @@ export function AdminSettingsPanel({
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-ink flex items-center gap-2">
-                      Master AI Agent
+                      Master AI agent
                       {aiSettings.enabled ? (
                         <span className="text-2xs px-2 py-0.5 rounded-full bg-success-soft text-success font-bold">
                           ACTIVE
@@ -2786,10 +2886,10 @@ export function AdminSettingsPanel({
               </div>
 
               {/* System Prompt */}
-              <div className="p-5 rounded-2xl border border-line bg-surface space-y-3">
+              <div className="card p-5 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h4 className="text-ui font-semibold text-ink">System Prompt & Agent Persona</h4>
+                    <h4 className="text-ui font-semibold text-ink">System prompt & agent persona</h4>
                     <p className="text-xs text-ink-3">
                       Defines who the assistant is, its tone, and response constraints. Facts are always anchored in your published articles.
                     </p>
@@ -2811,7 +2911,7 @@ export function AdminSettingsPanel({
               </div>
 
               {/* Answer mode */}
-              <div className="p-5 rounded-2xl border border-line bg-surface space-y-3">
+              <div className="card p-5 space-y-3">
                 <div>
                   <h4 className="text-ui font-semibold text-ink">How the assistant answers</h4>
                   <p className="text-xs text-ink-3">
@@ -2855,14 +2955,14 @@ export function AdminSettingsPanel({
               {/* Automation Modes */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* 1. Auto First-Reply with Delay */}
-                <div className="p-5 rounded-2xl border border-line bg-surface space-y-4">
+                <div className="card p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-lg bg-warn/10 text-warn flex items-center justify-center">
                         <Zap className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="text-ui font-semibold text-ink">Auto First Reply</h4>
+                        <h4 className="text-ui font-semibold text-ink">Auto first reply</h4>
                         <p className="text-xs text-ink-3">Answers incoming questions if no agent claims the chat</p>
                       </div>
                     </div>
@@ -2905,14 +3005,14 @@ export function AdminSettingsPanel({
                 </div>
 
                 {/* 2. Full Autopilot */}
-                <div className="p-5 rounded-2xl border border-line bg-surface space-y-4">
+                <div className="card p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
                         <Sparkles className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="text-ui font-semibold text-ink">Full Autopilot</h4>
+                        <h4 className="text-ui font-semibold text-ink">Full autopilot</h4>
                         <p className="text-xs text-ink-3">Continuously answers follow-up visitor messages</p>
                       </div>
                     </div>
@@ -2942,7 +3042,7 @@ export function AdminSettingsPanel({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <MessageSquare className="w-4 h-4 text-accent" />
-                      <span className="text-ui font-semibold text-ink">Suggested Replies</span>
+                      <span className="text-ui font-semibold text-ink">Suggested replies</span>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -3002,7 +3102,7 @@ export function AdminSettingsPanel({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Lock className="w-4 h-4 text-accent" />
-                      <span className="text-ui font-semibold text-ink">Require Admin Approval</span>
+                      <span className="text-ui font-semibold text-ink">Require admin approval</span>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -3023,7 +3123,7 @@ export function AdminSettingsPanel({
               </div>
 
               {/* Platform AI Access & Usage (Read-Only Workspace Card) */}
-              <div className="p-5 rounded-2xl border border-line bg-surface space-y-4 shadow-xs">
+              <div className="card p-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-line">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0">
@@ -3049,7 +3149,7 @@ export function AdminSettingsPanel({
                       href="?tab=billing"
                       className="btn btn-sm btn-primary gap-1.5 self-start sm:self-auto shrink-0 text-xs shadow-xs"
                     >
-                      <span>Upgrade Plan</span>
+                      <span>Upgrade plan</span>
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   )}
@@ -3076,7 +3176,7 @@ export function AdminSettingsPanel({
                       <>
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="font-medium text-ink">Monthly AI Replies</span>
+                            <span className="font-medium text-ink">Monthly AI replies</span>
                             <span className="text-ink-2 font-mono">
                               {aiPlanUsage.repliesUsed.toLocaleString()} / {aiPlanUsage.monthlyLimit === null ? '∞ Unlimited' : aiPlanUsage.monthlyLimit.toLocaleString()}
                             </span>
@@ -3119,7 +3219,7 @@ export function AdminSettingsPanel({
                           <div className="p-3.5 rounded-xl border border-danger-line bg-danger-soft flex items-start gap-3 text-xs text-danger">
                             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                             <div className="flex-1">
-                              <p className="font-semibold text-danger">Monthly Limit Reached</p>
+                              <p className="font-semibold text-danger">Monthly limit reached</p>
                               <p className="text-danger/90 mt-0.5">
                                 Your workspace has reached its AI reply quota for this month. Inbound conversations will automatically route to human agents until the cycle resets or you upgrade.
                               </p>
@@ -3156,7 +3256,7 @@ export function AdminSettingsPanel({
                   ) : (
                     <>
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>Save AI Settings</span>
+                      <span>Save AI settings</span>
                     </>
                   )}
                 </button>
@@ -3188,7 +3288,7 @@ export function AdminSettingsPanel({
             <div className="card p-6 space-y-6">
               <div className="flex items-start justify-between border-b border-line pb-4">
                 <div>
-                  <h3 className="text-base font-semibold text-ink">Live Chat Embed Snippet</h3>
+                  <h3 className="text-base font-semibold text-ink">Live chat embed snippet</h3>
                   <p className="text-xs text-ink-3 mt-0.5">
                     Embed this script tag into the <code className="font-mono text-accent">&lt;head&gt;</code> or bottom of the <code className="font-mono text-accent">&lt;body&gt;</code> of any website.
                   </p>
@@ -3198,12 +3298,12 @@ export function AdminSettingsPanel({
                   className="btn btn-sm btn-primary gap-1.5 shadow-xs"
                 >
                   {copiedSnippet ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  <span>{copiedSnippet ? 'Copied!' : 'Copy Snippet'}</span>
+                  <span>{copiedSnippet ? 'Copied!' : 'Copy snippet'}</span>
                 </button>
               </div>
 
               {/* Code Snippet Card */}
-              <div className="relative rounded-2xl bg-invert p-5 font-mono text-xs text-slate-200 border border-line-3 shadow-lg overflow-x-auto">
+              <div className="relative code-block p-5">
                 <pre>{installSnippetCode}</pre>
               </div>
 
@@ -3245,7 +3345,7 @@ export function AdminSettingsPanel({
                     <Globe className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-md font-semibold text-ink">Ready-Made Public Help Center URL</h3>
+                    <h3 className="text-md font-semibold text-ink">Ready-Made public help center URL</h3>
                     <p className="text-xs text-ink-3">
                       Every workspace has a live, ready-made Help Center with zero setup required.
                     </p>
@@ -3305,7 +3405,7 @@ export function AdminSettingsPanel({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <h4 className="text-ui font-semibold text-ink flex items-center gap-2">
-                      <span>Subdomain Slug</span>
+                      <span>Subdomain slug</span>
                       {hasCustomizedSlug ? (
                         <span className="px-2 py-0.5 rounded-md text-2xs font-semibold bg-surface-3 text-ink-3 border border-line">
                           Slug Customized (Locked)
@@ -3332,7 +3432,7 @@ export function AdminSettingsPanel({
                       }}
                       className="btn btn-sm btn-secondary text-xs"
                     >
-                      Customize Slug
+                      Customize slug
                     </button>
                   )}
                 </div>
@@ -3383,7 +3483,7 @@ export function AdminSettingsPanel({
                             }
                             className="btn btn-sm btn-primary"
                           >
-                            {savingSlug ? 'Saving...' : 'Save Slug'}
+                            {savingSlug ? 'Saving...' : 'Save slug'}
                           </button>
                         </div>
                       </div>
@@ -3428,7 +3528,7 @@ export function AdminSettingsPanel({
                             type="button"
                             onClick={handleSaveSlug}
                             disabled={savingSlug}
-                            className="btn btn-sm btn-primary bg-warn hover:bg-warn text-white border-none"
+                            className="btn btn-sm btn-primary bg-warn hover:bg-warn text-ink-inv border-none"
                           >
                             {savingSlug ? 'Saving...' : 'Yes, Permanently Save Slug'}
                           </button>
@@ -3467,10 +3567,10 @@ export function AdminSettingsPanel({
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded text-2xs font-bold uppercase tracking-wider bg-accent/10 text-accent border border-accent/20">
-                      Zero-Code Automation
+                      Zero-Code automation
                     </span>
                     <h3 className="text-base font-semibold text-ink flex items-center gap-1.5">
-                      <span>Website Navbar Button Auto-Injector</span>
+                      <span>Website navbar button Auto-Injector</span>
                     </h3>
                   </div>
                   <p className="text-xs text-ink-3">
@@ -3513,7 +3613,7 @@ export function AdminSettingsPanel({
 
                     {/* Action Selector */}
                     <div className="space-y-1.5">
-                      <label className="field-label">When Clicked By Visitor</label>
+                      <label className="field-label">When clicked by visitor</label>
                       <select
                         value={navbarConfig.action}
                         onChange={(e) =>
@@ -3539,7 +3639,7 @@ export function AdminSettingsPanel({
                   {/* Position & Styling Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-line/60">
                     <div className="space-y-1.5 p-3.5 rounded-xl border border-line bg-surface-2">
-                      <label className="text-xs font-semibold text-ink block">Placement Position</label>
+                      <label className="text-xs font-semibold text-ink block">Placement position</label>
                       <div className="grid grid-cols-2 gap-2 mt-1">
                         <button
                           type="button"
@@ -3563,7 +3663,7 @@ export function AdminSettingsPanel({
                               : 'border-line bg-surface text-ink-2 hover:bg-surface-3'
                           )}
                         >
-                          Start of Menu
+                          Start of menu
                         </button>
                       </div>
                       <p className="text-2xs text-ink-3 mt-1">
@@ -3572,7 +3672,7 @@ export function AdminSettingsPanel({
                     </div>
 
                     <div className="space-y-1.5 p-3.5 rounded-xl border border-line bg-surface-2">
-                      <label className="text-xs font-semibold text-ink block">Button Styling Variant</label>
+                      <label className="text-xs font-semibold text-ink block">Button styling variant</label>
                       <div className="grid grid-cols-2 gap-2 mt-1">
                         <button
                           type="button"
@@ -3584,7 +3684,7 @@ export function AdminSettingsPanel({
                               : 'border-line bg-surface text-ink-2 hover:bg-surface-3'
                           )}
                         >
-                          Auto-Match Nav Links
+                          Auto-Match nav links
                         </button>
                         <button
                           type="button"
@@ -3596,7 +3696,7 @@ export function AdminSettingsPanel({
                               : 'border-line bg-surface text-ink-2 hover:bg-surface-3'
                           )}
                         >
-                          Modern Pill Button
+                          Modern pill button
                         </button>
                       </div>
                       <p className="text-2xs text-ink-3 mt-1">
@@ -3610,7 +3710,7 @@ export function AdminSettingsPanel({
                     <div className="space-y-0.5">
                       <span className="text-ui font-semibold text-ink flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-accent" />
-                        <span>Interactive Website Simulator</span>
+                        <span>Interactive website simulator</span>
                       </span>
                       <p className="text-xs text-ink-3">
                         Test and see how your menu link looks live on your site layout.
@@ -3661,7 +3761,7 @@ export function AdminSettingsPanel({
 
                     <div className="space-y-1 pt-1">
                       <label className="text-xs font-semibold text-ink block">
-                        Optional Custom CSS Selector
+                        Optional custom CSS selector
                       </label>
                       <input
                         type="text"
@@ -3754,7 +3854,7 @@ export function AdminSettingsPanel({
                   type="button"
                   onClick={() => {
                     const host = getWidgetOrigin();
-                    const snippet = `<script\n  src="${host}/widget.js"\n  data-workspace-id="${workspace.id}"\n  data-color="${workspace.brand_color || '#2563eb'}"\n  data-title="${workspace.name} Support"\n  async>\n</script>`;
+                    const snippet = `<script\n  src="${host}/widget.js"\n  data-workspace-id="${workspace.id}"\n  data-color="${workspace.brand_color || DEFAULT_BRAND_COLOR}"\n  data-title="${workspace.name} Support"\n  async>\n</script>`;
                     navigator.clipboard.writeText(snippet);
                     setCopiedSnippet(true);
                     setTimeout(() => setCopiedSnippet(false), 2000);
@@ -3763,14 +3863,14 @@ export function AdminSettingsPanel({
                   className="btn btn-sm btn-secondary gap-1.5 shadow-xs"
                 >
                   {copiedSnippet ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedSnippet ? 'Copied!' : 'Copy Script Tag'}</span>
+                  <span>{copiedSnippet ? 'Copied!' : 'Copy script tag'}</span>
                 </button>
               </div>
 
               {/* Code Display */}
               {(() => {
                 const host = getWidgetOrigin();
-                const snippet = `<script\n  src="${host}/widget.js"\n  data-workspace-id="${workspace.id}"\n  data-color="${workspace.brand_color || '#2563eb'}"\n  data-title="${workspace.name} Support"\n  async>\n</script>`;
+                const snippet = `<script\n  src="${host}/widget.js"\n  data-workspace-id="${workspace.id}"\n  data-color="${workspace.brand_color || DEFAULT_BRAND_COLOR}"\n  data-title="${workspace.name} Support"\n  async>\n</script>`;
                 return (
                   <div className="relative rounded-xl border border-line bg-surface-2 p-4 font-mono text-xs text-ink overflow-x-auto leading-relaxed">
                     <pre><code>{snippet}</code></pre>
@@ -3784,11 +3884,11 @@ export function AdminSettingsPanel({
                   <div className="font-mono text-xs text-accent mt-0.5 truncate">{workspace.id}</div>
                 </div>
                 <div className="p-3 rounded-xl border border-line/60 bg-surface">
-                  <div className="font-semibold text-ink text-xs">Brand Color</div>
-                  <div className="font-mono text-xs text-ink mt-0.5">{workspace.brand_color || '#2563eb'}</div>
+                  <div className="font-semibold text-ink text-xs">Brand color</div>
+                  <div className="font-mono text-xs text-ink mt-0.5">{workspace.brand_color || DEFAULT_BRAND_COLOR}</div>
                 </div>
                 <div className="p-3 rounded-xl border border-line/60 bg-surface">
-                  <div className="font-semibold text-ink text-xs">Bundle Optimization</div>
+                  <div className="font-semibold text-ink text-xs">Bundle optimization</div>
                   <div className="text-xs text-ink mt-0.5">Asynchronous zero-blocking loading</div>
                 </div>
               </div>
@@ -3916,7 +4016,7 @@ export function AdminSettingsPanel({
                   className="btn btn-sm btn-secondary gap-1.5 shadow-xs"
                 >
                   <Copy className="w-3.5 h-3.5" />
-                  <span>Copy SDK Code</span>
+                  <span>Copy SDK code</span>
                 </button>
               </div>
 

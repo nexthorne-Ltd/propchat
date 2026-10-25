@@ -51,6 +51,7 @@ const conversations = names.map(([, , , line], i) => ({
 const messages = [
   { id: 'm1', conversation_id: 'c0', sender_type: 'visitor', sender_id: 'v0', content: 'Hi, I was charged twice for the October invoice. Can you check?', created_at: ago(30), is_internal: false, metadata: {} },
   { id: 'm2', conversation_id: 'c0', sender_type: 'ai', sender_id: null, content: 'Sorry about that, Lena. I can see two payments on 3 October. I have asked a teammate to refund the duplicate.', created_at: ago(29), is_internal: false, metadata: {} },
+  { id: 'm2b', conversation_id: 'c0', sender_type: 'system', sender_id: null, content: '📎 Thread merged: Conversation #4f2a91c0 was consolidated into this thread by Jonas Weber.', created_at: ago(25), is_internal: false, metadata: {} },
   { id: 'm3', conversation_id: 'c0', sender_type: 'agent', sender_id: 'a2', content: 'Refund issued in Stripe, 5–10 days to show.', created_at: ago(20), is_internal: true, metadata: {} },
   { id: 'm4', conversation_id: 'c0', sender_type: 'agent', sender_id: ME, content: 'Hi Lena, the duplicate charge is refunded. You will see it on your statement within 5–10 business days.', created_at: ago(18), is_internal: false, metadata: {}, read_at: ago(17) },
   { id: 'm5', conversation_id: 'c0', sender_type: 'visitor', sender_id: 'v0', content: 'Great, thank you for the quick help!', created_at: ago(2), is_internal: false, metadata: {} },
@@ -78,14 +79,47 @@ const canned_responses = [
   { id: 'cr1', workspace_id: WS, shortcut: 'refund', title: 'Refund issued', content: 'Your refund is on its way.', agent_id: null },
 ];
 
-const tables = { agents, workspaces: [workspace], public_workspaces: [workspace], visitors, conversations, messages, tickets, help_sections, articles, canned_responses };
+// Thirty days of reporting events so /api/reports has something to compute.
+// Deterministic (no Math.random) so screenshots are repeatable.
+const reporting_events = [];
+{
+  const agentIds = [ME, 'a2', 'a3'];
+  const channels = ['web', 'web', 'email', 'whatsapp'];
+  const tagSets = [['billing'], ['login'], ['widget'], ['billing', 'refund'], []];
+  let id = 1;
+  for (let day = 29; day >= 0; day--) {
+    const created = 6 + ((day * 7) % 9);
+    for (let i = 0; i < created; i++) {
+      const at = (offsetMin) => new Date(now - day * 86400000 - ((i * 53 + day * 17) % 600) * 60000 + offsetMin * 60000).toISOString();
+      const agent = agentIds[(i + day) % 3];
+      const base = { workspace_id: WS, ticket_id: `t-${day}-${i}`, agent_id: agent, group_id: null, channel: channels[(i + day) % 4], priority: i % 5 === 0 ? 'high' : 'normal', tags: tagSets[(i + day) % 5], csat_rating: null, csat_comment: null, metadata: {} };
+      reporting_events.push({ ...base, id: id++, event_type: 'ticket_created', occurred_at: at(0), duration_seconds: null });
+      if (i % 4 === 0) { reporting_events.push({ ...base, id: id++, event_type: 'bot_resolved', occurred_at: at(2), duration_seconds: null }); continue; }
+      if (i % 4 === 1) reporting_events.push({ ...base, id: id++, event_type: 'bot_handover', occurred_at: at(1), duration_seconds: null });
+      const frt = 45 + ((i * 37 + day * 11) % 400);
+      reporting_events.push({ ...base, id: id++, event_type: 'first_reply', occurred_at: at(frt / 60), duration_seconds: frt });
+      if ((i + day) % 6 !== 0) {
+        const res = 1800 + ((i * 911 + day * 313) % 20000);
+        reporting_events.push({ ...base, id: id++, event_type: 'ticket_solved', occurred_at: at(res / 60), duration_seconds: res });
+        if (i % 3 === 0) reporting_events.push({ ...base, id: id++, event_type: 'csat_rated', occurred_at: at(res / 60 + 30), duration_seconds: null, csat_rating: (i + day) % 9 === 0 ? 'bad' : 'good', csat_comment: (i + day) % 9 === 0 ? 'Took too long to get an answer.' : 'Quick and clear, thanks!' });
+      }
+    }
+  }
+}
+
+const tables = { agents, workspaces: [workspace], public_workspaces: [workspace], visitors, conversations, messages, tickets, help_sections, articles, canned_responses, reporting_events, sla_events: [], ticket_groups: [] };
 
 function filterRows(rows, params) {
   let out = rows;
   for (const [k, v] of params) {
     if (['select', 'order', 'limit', 'offset', 'or', 'and'].includes(k)) continue;
-    const m = /^(eq|in|neq|is|not)\.(.*)$/.exec(v);
+    const m = /^(eq|in|neq|is|not|gte|gt|lte|lt)\.(.*)$/.exec(v);
     if (!m) continue;
+    // Range filters compare as strings: right for ISO timestamps, which is all they are used for here.
+    if (m[1] === 'gte') out = out.filter((r) => !(k in r) || String(r[k]) >= m[2]);
+    if (m[1] === 'gt') out = out.filter((r) => !(k in r) || String(r[k]) > m[2]);
+    if (m[1] === 'lte') out = out.filter((r) => !(k in r) || String(r[k]) <= m[2]);
+    if (m[1] === 'lt') out = out.filter((r) => !(k in r) || String(r[k]) < m[2]);
     if (m[1] === 'eq') out = out.filter((r) => !(k in r) || String(r[k]) === m[2]);
     if (m[1] === 'in') {
       const set = m[2].replace(/^\(|\)$/g, '').split(',').map((s) => s.replace(/"/g, ''));
@@ -100,6 +134,9 @@ const cors = {
   'Access-Control-Allow-Headers': '*',
   'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,HEAD,OPTIONS,PUT',
   'Access-Control-Expose-Headers': 'Content-Range',
+  // Chrome's Private Network Access preflight, needed when a page on
+  // localhost:3001 (e.g. the widget test page) calls 127.0.0.1.
+  'Access-Control-Allow-Private-Network': 'true',
 };
 
 http.createServer((req, res) => {
@@ -112,12 +149,34 @@ http.createServer((req, res) => {
   if (req.method === 'OPTIONS') return send(204);
   if (url.pathname.startsWith('/auth/v1/user')) return send(200, user);
   if (url.pathname.startsWith('/auth/v1/')) return send(200, {});
+  // The widget's load path: its workspace config and a visitor session, so
+  // /demo.html can be pointed at this mock. Every other RPC answers empty.
+  if (url.pathname === '/rest/v1/rpc/fn_get_workspace_config') {
+    return send(200, { ...workspace, greeting_title: 'Hi there 👋', greeting_message: 'We usually reply in a few minutes.' });
+  }
+  if (url.pathname === '/rest/v1/rpc/fn_widget_session') {
+    return send(200, { token: 'mock-visitor-token', topic: 'mock-topic', conversation: null });
+  }
+  if (url.pathname.startsWith('/rest/v1/rpc/fn_widget_')) return send(200, null);
   if (url.pathname.startsWith('/rest/v1/rpc/')) return send(200, []);
   const table = url.pathname.replace('/rest/v1/', '');
   const rows = filterRows(tables[table] || [], url.searchParams);
   const range = (req.headers['range'] || '').split('-');
   const total = rows.length;
   if (req.method === 'HEAD') return send(200, undefined, { 'Content-Range': `*/${total}` });
+  if (req.method === 'PATCH' && (req.headers['accept'] || '').includes('vnd.pgrst.object')) {
+    // update().select().single(): answer with the row as it would now read,
+    // so save flows in the app can be checked. Nothing is kept between calls.
+    let raw = '';
+    req.on('data', (c) => { raw += c; });
+    req.on('end', () => {
+      if (!rows.length) return send(406, { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' });
+      let patch = {};
+      try { patch = JSON.parse(raw || '{}'); } catch {}
+      send(200, { ...rows[0], ...patch });
+    });
+    return;
+  }
   if (req.method !== 'GET') return send(201, []);
   let page = rows;
   const limit = Number(url.searchParams.get('limit'));

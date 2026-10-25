@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "chatify-mock",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/design/dev-with-mock.mjs"],
+      "port": 3001
     }
   ]
 }

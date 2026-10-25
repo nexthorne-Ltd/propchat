@@ -20,6 +20,7 @@ import { parseRawEmail } from './parse';
 import { splitQuotedText } from './quote';
 import { composeNotification, composeReply } from './compose';
 import { notificationContent, renderBrandedEmail } from './template';
+import { DEFAULT_BRAND_COLOR } from '@/lib/brand';
 
 const fixture = (name: string) => readFileSync(join(__dirname, 'fixtures', name));
 const OWN = ['help@acme.test', 'acme@in.example.test'];
@@ -248,7 +249,7 @@ describe('the branded template', () => {
 
   it('falls back to a safe colour and refuses non-https logos', () => {
     const { html } = renderBrandedEmail({ workspaceName: 'A', brandColor: 'red;}</style>', logoUrl: 'http://x.test/l.png', body: 'x' });
-    expect(html).toContain('background:#2563eb');
+    expect(html).toContain(`background:${DEFAULT_BRAND_COLOR}`);
     expect(html).not.toContain('<img');
   });
 

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
+  ChevronDown,
   Clock,
   ExternalLink,
   Globe,
@@ -76,6 +77,28 @@ function Row({
   );
 }
 
+/** Which groups an agent has collapsed is remembered in this browser, so the
+    panel opens the way they left it on every conversation. */
+function useGroupOpen(title: string): [boolean, (open: boolean) => void] {
+  const key = `zentry-details-open:${title}`;
+  // Read once on mount. The panel only renders after a conversation is
+  // picked on the client, so there is no server render to disagree with.
+  const [open, setOpen] = useState(() => {
+    try {
+      return typeof window === 'undefined' || localStorage.getItem(key) !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const update = (next: boolean) => {
+    setOpen(next);
+    try {
+      localStorage.setItem(key, next ? '1' : '0');
+    } catch {}
+  };
+  return [open, update];
+}
+
 function Section({
   title,
   action,
@@ -85,18 +108,32 @@ function Section({
   action?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useGroupOpen(title);
+  const id = `details-${title.toLowerCase().replace(/\s+/g, '-')}`;
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between px-1">
-        <h3 className="eyebrow text-2xs font-bold tracking-wider text-ink-3">
-          {title}
-        </h3>
+    <section className="border-b border-line">
+      <div className="flex items-center justify-between gap-2 px-4">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={() => setOpen(!open)}
+          className="flex-1 flex items-center justify-between gap-2 py-3 text-left rounded-sm"
+        >
+          <h3 className="eyebrow">{title}</h3>
+          <ChevronDown
+            aria-hidden="true"
+            className={cn('w-3.5 h-3.5 text-ink-3 transition-transform duration-150', !open && '-rotate-90')}
+          />
+        </button>
         {action}
       </div>
-      <div className="rounded-xl border border-line bg-surface-2 divide-y divide-line/60 overflow-hidden shadow-xs">
-        {children}
-      </div>
-    </div>
+      {open && (
+        <div id={id} className="pb-3 px-1">
+          {children}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -284,14 +321,18 @@ export function VisitorDetailsSidebar({
   };
 
   return (
-    <aside className="hidden xl:flex w-[280px] 2xl:w-[300px] shrink-0 h-screen border-l border-line bg-surface flex-col overflow-y-auto select-none relative z-10">
+    <aside
+      aria-label="Customer details"
+      className="hidden xl:flex w-[280px] 2xl:w-[300px] shrink-0 h-screen border-l border-line bg-surface-2 flex-col overflow-y-auto relative z-10"
+    >
       {/* ── 1. Profile Header & Identity ── */}
-      <div className="px-5 py-6 flex flex-col items-center text-center border-b border-line/80 relative bg-surface-2/40">
+      <div className="px-5 py-5 flex flex-col items-center text-center border-b border-line relative">
         {onClose && (
           <button
             onClick={onClose}
-            title="Close sidebar"
-            className="absolute top-3 right-3 p-1.5 rounded-lg text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors"
+            title="Close customer details"
+            aria-label="Close customer details"
+            className="absolute top-3 right-3 btn btn-ghost btn-xs btn-icon"
           >
             <X className="w-4 h-4" />
           </button>
@@ -303,9 +344,9 @@ export function VisitorDetailsSidebar({
           size="lg"
           muted={!liveVisitor.name && !liveVisitor.email}
           online={isOnline}
-          className="rounded-full shadow-sm ring-2 ring-black/5"
+          className="rounded-full"
         />
-        <h2 className="mt-3 text-md font-bold tracking-tight text-ink">
+        <h2 className="mt-3 text-md font-semibold tracking-tight text-ink">
           {displayName}
         </h2>
 
@@ -321,7 +362,7 @@ export function VisitorDetailsSidebar({
             <button
               onClick={() => handleCopyEmail(liveVisitor.email!)}
               title={copiedEmail ? 'Copied!' : 'Copy email'}
-              className="text-2xs text-ink-3 hover:text-ink px-1.5 py-0.5 rounded bg-surface-3 hover:bg-surface-2 transition-colors shrink-0"
+              className="btn btn-ghost btn-xs shrink-0"
             >
               {copiedEmail ? 'Copied' : 'Copy'}
             </button>
@@ -340,9 +381,9 @@ export function VisitorDetailsSidebar({
         </div>
       </div>
 
-      <div className="p-4 space-y-4">
+      <div>
         {/* ── 2. Live Currently Viewing Page ── */}
-        <Section title="Currently Viewing">
+        <Section title="Currently viewing">
           <div className="px-3 py-2.5">
             <a
               href={targetHref}
@@ -547,9 +588,9 @@ export function VisitorDetailsSidebar({
 
         {/* ── 5. Other Conversations from this Visitor ── */}
         <Section
-          title="Other Conversations"
+          title="Other conversations"
           action={
-            <span className="text-2xs font-bold px-2 py-0.5 rounded-full bg-surface-3 text-ink-2 border border-line">
+            <span className="pill pill-neutral" aria-label={`${pastConversations.length} other conversations`}>
               {pastConversations.length}
             </span>
           }

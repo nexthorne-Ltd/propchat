@@ -1058,7 +1058,7 @@ export function HelpDeskDashboard({
                   className={cn(
                     'h-8 px-3 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5 border',
                     selectedSectionId === 'uncategorised'
-                      ? 'bg-warn text-white border-transparent shadow-xs font-semibold'
+                      ? 'bg-warn text-ink-inv border-transparent shadow-xs font-semibold'
                       : 'bg-warn/10 text-warn border-warn/30 hover:bg-warn/20'
                   )}
                   title="Articles without a section or with legacy category"
@@ -1123,7 +1123,7 @@ export function HelpDeskDashboard({
                         className={cn(
                           'w-5 h-5 rounded flex items-center justify-center transition-colors cursor-pointer',
                           isSelected
-                            ? 'hover:bg-danger text-accent-ink hover:text-white'
+                            ? 'hover:bg-danger text-accent-ink hover:text-ink-inv'
                             : 'hover:bg-danger/20 text-ink-3 hover:text-danger'
                         )}
                         title={`Delete section "${sec.name}"`}
@@ -1272,7 +1272,7 @@ export function HelpDeskDashboard({
                   type="button"
                   disabled={isMigrating}
                   onClick={handleRunMigration}
-                  className="h-8 px-3.5 rounded-lg bg-warn hover:bg-warn text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                  className="h-8 px-3.5 rounded-lg bg-warn hover:bg-warn text-ink-inv text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
                   title="Automatically match or create sections from legacy categories"
                 >
                   <Sparkles className={cn('w-3.5 h-3.5', isMigrating && 'animate-spin')} />
@@ -2743,7 +2743,7 @@ function DeleteSectionConfirmModal({
                     : null
                 )
               }
-              className="h-8 px-4 rounded-lg bg-danger hover:bg-danger text-white text-xs font-semibold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="h-8 px-4 rounded-lg bg-danger hover:bg-danger text-ink-inv text-xs font-semibold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>
@@ -3016,7 +3016,7 @@ function SectionsManagerModal({
                     onRunMigration();
                     onClose();
                   }}
-                  className="px-2.5 py-1 rounded-md bg-warn hover:bg-warn text-white text-xs font-semibold shrink-0 cursor-pointer transition-colors shadow-2xs"
+                  className="px-2.5 py-1 rounded-md bg-warn hover:bg-warn text-ink-inv text-xs font-semibold shrink-0 cursor-pointer transition-colors shadow-2xs"
                 >
                   Migrate All
                 </button>

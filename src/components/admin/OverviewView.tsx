@@ -33,6 +33,7 @@ import { LoadingState, ErrorState, SkeletonBlock } from '@/components/ui/States'
 import { EmptyState } from '@/components/ui/EmptyState';
 import { cn } from '@/lib/utils';
 import { errorMessage } from '@/lib/errors/user-error';
+import { DEFAULT_BRAND_COLOR } from '@/lib/brand';
 
 export function OverviewView() {
   const [data, setData] = useState<PlatformOverviewMetrics | null>(null);
@@ -314,7 +315,7 @@ export function OverviewView() {
                   <div className="flex items-center gap-3 min-w-0">
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0"
-                      style={{ backgroundColor: w.brand_color || '#2563eb' }}
+                      style={{ backgroundColor: w.brand_color || DEFAULT_BRAND_COLOR }}
                     >
                       {w.name.charAt(0).toUpperCase()}
                     </div>

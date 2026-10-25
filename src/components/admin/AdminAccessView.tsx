@@ -466,22 +466,22 @@ export function AdminAccessView() {
                         {/* Status */}
                         <td className="py-3 px-4">
                           {isPending ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-warn-soft text-warn border border-warn-line">
                               <Clock className="w-3 h-3" />
                               <span>Pending</span>
                             </span>
                           ) : isAccepted ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-success-soft text-success border border-success-line">
                               <CheckCircle2 className="w-3 h-3" />
                               <span>Accepted</span>
                             </span>
                           ) : isRevoked ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-danger-soft text-danger border border-danger-line">
                               <Ban className="w-3 h-3" />
                               <span>Revoked</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-zinc-500/10 text-zinc-500 border border-zinc-500/20">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-surface-3 text-ink-2 border border-line">
                               <Clock className="w-3 h-3" />
                               <span>Expired</span>
                             </span>
@@ -491,7 +491,7 @@ export function AdminAccessView() {
                         {/* Expiry */}
                         <td className="py-3 px-4 text-ink-3 text-2xs">
                           {isPending ? (
-                            <span className="text-amber-500 font-medium">
+                            <span className="text-warn font-medium">
                               {formatExpiryTime(invite.expires_at)}
                             </span>
                           ) : isAccepted && invite.accepted_at ? (
@@ -711,11 +711,11 @@ export function AdminAccessView() {
       >
         {lastCreatedInviteUrl ? (
           <div className="space-y-4">
-            <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 text-xs text-emerald-600 flex items-start gap-2.5">
-              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+            <div className="p-3.5 rounded-xl border border-success-line bg-success-soft text-xs text-success flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-success" />
               <div className="flex-1 space-y-1">
                 <strong>Invitation Link Created & Sent!</strong>
-                <p className="text-2xs text-emerald-700">
+                <p className="text-2xs text-success">
                   An email was sent to <strong>{grantEmail}</strong>. You can also copy and share the link directly:
                 </p>
               </div>
@@ -746,7 +746,7 @@ export function AdminAccessView() {
                 >
                   {copiedUrl ? (
                     <>
-                      <Check className="w-3.5 h-3.5 mr-1 text-emerald-500" />
+                      <Check className="w-3.5 h-3.5 mr-1 text-success" />
                       <span>Copied</span>
                     </>
                   ) : (

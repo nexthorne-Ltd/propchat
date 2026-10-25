@@ -183,11 +183,11 @@ function InviteAcceptForm() {
             <div
               className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto ${
                 isExpired
-                  ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                  ? 'bg-warn-soft text-warn border border-warn-line'
                   : isRevoked
                   ? 'bg-danger/10 text-danger border border-danger/20'
                   : isAccepted
-                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                  ? 'bg-success-soft text-success border border-success-line'
                   : 'bg-danger/10 text-danger border border-danger/20'
               }`}
             >

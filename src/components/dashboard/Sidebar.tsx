@@ -53,6 +53,16 @@ interface SidebarProps {
   hasVisitors?: boolean;
 }
 
+/* One shape for every count badge. Accent marks unread work, warn marks
+   people waiting on a person, neutral is just a total. */
+const COUNT_BASE =
+  'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-2xs font-bold tabular-nums';
+const COUNT = {
+  accent: cn(COUNT_BASE, 'bg-accent text-accent-ink'),
+  warn: cn(COUNT_BASE, 'bg-warn-soft text-warn border border-warn-line'),
+  neutral: cn(COUNT_BASE, 'bg-surface-3 text-ink-2'),
+};
+
 const STATUS_TINT: Record<AgentStatus, string> = {
   online: 'var(--ds-success)',
   away: 'var(--ds-warn)',
@@ -100,7 +110,7 @@ export function Sidebar({
       label: 'Inbox',
       Icon: Inbox,
       badge: counts.open > 0 ? (
-        <span className="px-1.5 py-0.5 text-2xs font-bold rounded-full bg-accent text-accent-ink shadow-xs">
+        <span className={COUNT.accent}>
           {counts.open}
         </span>
       ) : undefined,
@@ -111,7 +121,7 @@ export function Sidebar({
       Icon: Hand,
       badge: counts.handovers ? (
         <span
-          className="px-1.5 py-0.5 text-2xs font-bold rounded-full bg-accent text-accent-ink shadow-xs"
+          className={COUNT.warn}
           aria-label={`${counts.handovers} waiting for a person`}
         >
           {counts.handovers > 99 ? '99+' : counts.handovers}
@@ -126,10 +136,7 @@ export function Sidebar({
       badge:
         counts.teamUnread ? (
           <span
-            className={cn(
-              'px-1.5 py-0.5 text-2xs font-bold rounded-full shadow-xs',
-              counts.teamUrgent ? 'bg-accent text-accent-ink' : 'bg-surface-3 text-ink-2'
-            )}
+            className={counts.teamUrgent ? COUNT.accent : COUNT.neutral}
           >
             {counts.teamUnread > 99 ? '99+' : counts.teamUnread}
           </span>
@@ -141,7 +148,7 @@ export function Sidebar({
       Icon: Radio,
       badge:
         counts.liveVisitors > 0 ? (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-2xs bg-success/10 text-success font-bold border border-success/20">
+          <span className="pill pill-success" aria-label={`${counts.liveVisitors} visitors on your site now`}>
             <span className="live-dot" />
             {counts.liveVisitors}
           </span>
@@ -152,11 +159,11 @@ export function Sidebar({
       : []),
     {
       view: 'helpdesk',
-      label: 'Help Desk',
+      label: 'Help desk',
       Icon: BookOpen,
       badge:
         counts.articles !== undefined && counts.articles > 0 ? (
-          <span className="px-1.5 py-0.5 text-2xs font-medium rounded-full bg-surface-3 text-ink-2">
+          <span className={COUNT.neutral}>
             {counts.articles}
           </span>
         ) : undefined,
@@ -167,7 +174,7 @@ export function Sidebar({
       Icon: HelpCircle,
       badge:
         counts.unanswered !== undefined && counts.unanswered > 0 ? (
-          <span className="px-1.5 py-0.5 text-2xs font-bold rounded-full bg-amber-500 text-white shadow-xs">
+          <span className={COUNT.neutral} aria-label={`${counts.unanswered} questions the bot could not answer`}>
             {counts.unanswered}
           </span>
         ) : undefined,
@@ -178,15 +185,15 @@ export function Sidebar({
   return (
     <aside className="glass w-[220px] shrink-0 h-screen flex flex-col border-r select-none relative z-10 overflow-hidden">
       {/* Workspace Identity Card */}
-      <div className="p-3 border-b border-line/80">
-        <div className="flex items-center justify-between gap-2.5 p-2 rounded-xl bg-surface-2/80 hover:bg-surface-2 transition-all border border-line/60">
+      <div className="px-3 py-3 border-b border-line">
+        <div className="flex items-center justify-between gap-2.5 px-1">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <Avatar
               name={workspace?.name || 'Z'}
               seed={workspace?.id || 'zen-try'}
               color={workspace?.brand_color || undefined}
               size="sm"
-              className="shadow-xs ring-1 ring-black/5"
+              className="shrink-0"
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
@@ -194,13 +201,13 @@ export function Sidebar({
                   {workspace?.name || 'Zen-try'}
                 </span>
                 {hasVisitors && (
-                  <span className="text-2xs font-bold px-1.5 py-0.5 rounded bg-success/15 text-success border border-success/30 uppercase tracking-wider">
+                  <span className="pill pill-success" title="The widget is live on your site">
                     Live
                   </span>
                 )}
               </div>
               <div className="text-2xs text-ink-3 truncate flex items-center gap-1 mt-0.5">
-                <span className="truncate">{workspace?.website_url ? workspace.website_url.replace(/^https?:\/\//, '').replace(/\/+$/, '') : 'Workspace Active'}</span>
+                <span className="truncate">{workspace?.website_url ? workspace.website_url.replace(/^https?:\/\//, '').replace(/\/+$/, '') : 'Workspace'}</span>
               </div>
             </div>
           </div>
@@ -208,7 +215,7 @@ export function Sidebar({
       </div>
 
       {/* Navigation List */}
-      <nav className="p-3 flex-1 overflow-y-auto space-y-1" aria-label="Main">
+      <nav className="p-3 flex-1 overflow-y-auto space-y-0.5" aria-label="Main">
         <button
           type="button"
           onClick={openCommandPalette}
@@ -218,9 +225,7 @@ export function Sidebar({
           <span className="flex-1 text-left">Search…</span>
           <kbd className="kbd">Ctrl K</kbd>
         </button>
-        <div className="px-2 py-1 text-2xs font-bold tracking-wider uppercase text-ink-3">
-          Menu
-        </div>
+        <div className="eyebrow px-2 pt-1 pb-1.5">Menu</div>
         {nav.map(({ view, label, Icon, badge }) => {
           const active = activeView === view;
           return (
@@ -229,15 +234,12 @@ export function Sidebar({
               onClick={() => onSelectView(view)}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'w-full h-9 px-2.5 rounded-lg flex items-center justify-between gap-2 text-ui font-medium transition-all duration-150 relative group',
+                'w-full h-9 px-2.5 rounded-sm flex items-center justify-between gap-2 text-ui font-medium transition-colors duration-150 group',
                 active
                   ? 'bg-accent-soft text-accent font-semibold'
-                  : 'text-ink-2 hover:bg-surface-3/70 hover:text-ink'
+                  : 'text-ink-2 hover:bg-surface-3 hover:text-ink'
               )}
             >
-              {active && (
-                <span className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-accent" />
-              )}
               <span className="flex items-center gap-2.5 truncate">
                 <Icon
                   className={cn(
@@ -256,19 +258,14 @@ export function Sidebar({
       </nav>
 
       {/* Footer: Quick controls + Agent Profile */}
-      <div className="p-3 border-t border-line/80 space-y-2.5">
-        {/* 4 Bottom Icon Buttons with Clear Tooltips */}
-        <div className="flex items-center justify-between px-1.5 py-0.5 rounded-lg bg-surface-2/60 border border-line/50">
+      <div className="p-3 border-t border-line space-y-2">
+        <div className="flex items-center justify-between px-1">
           <button
             onClick={toggleSound}
-            title={soundActive ? 'Sound Alerts: Enabled (click to mute)' : 'Sound Alerts: Muted (click to unmute)'}
-            aria-label={soundActive ? 'Mute audio notifications' : 'Unmute audio notifications'}
-            className={cn(
-              'w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer',
-              soundActive
-                ? 'text-accent hover:bg-accent/10'
-                : 'text-ink-3 hover:text-ink hover:bg-surface-3 opacity-60'
-            )}
+            title={soundActive ? 'Sound alerts on' : 'Sound alerts off'}
+            aria-label={soundActive ? 'Mute sound alerts' : 'Turn on sound alerts'}
+            aria-pressed={soundActive}
+            className={cn('btn btn-ghost btn-xs btn-icon', soundActive && 'text-accent')}
           >
             {soundActive ? (
               <Volume2 className="w-3.5 h-3.5" />
@@ -278,18 +275,18 @@ export function Sidebar({
           </button>
           <button
             onClick={enableNotifications}
-            title="Browser Push Notifications: Click to grant permission"
-            aria-label="Browser push notifications"
-            className="w-7 h-7 rounded-md flex items-center justify-center text-ink-3 hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer"
+            title="Turn on browser notifications"
+            aria-label="Turn on browser notifications"
+            className="btn btn-ghost btn-xs btn-icon"
           >
             <Bell className="w-3.5 h-3.5" />
           </button>
           {onOpenShortcuts && (
             <button
               onClick={onOpenShortcuts}
-              title="Keyboard Shortcuts Cheat Sheet (Press ?)"
-              aria-label="Keyboard Shortcuts"
-              className="w-7 h-7 rounded-md flex items-center justify-center text-ink-3 hover:text-accent hover:bg-accent/10 transition-colors text-xs font-mono font-bold cursor-pointer"
+              title="Keyboard shortcuts (?)"
+              aria-label="Keyboard shortcuts"
+              className="btn btn-ghost btn-xs btn-icon font-mono"
             >
               ?
             </button>
@@ -297,9 +294,9 @@ export function Sidebar({
           {onOpenMobileInstall && (
             <button
               onClick={onOpenMobileInstall}
-              title="Install Mobile PWA / Add to Home Screen"
-              aria-label="Install Mobile PWA / Add to Home Screen"
-              className="w-7 h-7 rounded-md flex items-center justify-center text-ink-3 hover:text-accent hover:bg-accent/10 transition-colors cursor-pointer"
+              title="Add Zentry to your phone"
+              aria-label="Add Zentry to your phone"
+              className="btn btn-ghost btn-xs btn-icon"
             >
               <Smartphone className="w-3.5 h-3.5" />
             </button>
@@ -351,12 +348,12 @@ export function Sidebar({
               trigger={({ open }) => (
                 <span
                   className={cn(
-                    'flex items-center gap-2.5 w-full p-2 rounded-xl border transition-all cursor-pointer shadow-xs',
+                    'flex items-center gap-2.5 w-full p-2 rounded-md border transition-colors cursor-pointer',
                     open
-                      ? 'bg-surface border-line-2 ring-2 ring-accent/15'
-                      : 'bg-surface border-line hover:border-line-2 hover:bg-surface-2/60'
+                      ? 'bg-surface-2 border-line-2'
+                      : 'bg-surface border-line hover:border-line-2 hover:bg-surface-2'
                   )}
-                  title={`${agentDisplayName} (${agentRoleLabel}) — Click to change status or theme`}
+                  title={`${agentDisplayName} (${agentRoleLabel}): change status or theme`}
                 >
                   <Avatar
                     name={agentDisplayName}
@@ -366,7 +363,7 @@ export function Sidebar({
                     className="shrink-0"
                   />
                   <span className="min-w-0 flex-1 text-left">
-                    <span className="block text-xs font-bold text-ink truncate leading-tight">
+                    <span className="block text-xs font-semibold text-ink truncate leading-tight">
                       {agentDisplayName}
                     </span>
                     <span className="flex items-center gap-1.5 text-2xs text-ink-3 mt-0.5">
@@ -377,10 +374,8 @@ export function Sidebar({
                         }}
                       />
                       <span className="capitalize">{currentAgent?.status || 'online'}</span>
-                      <span className="text-ink-3/40">·</span>
-                      <span className="text-2xs font-semibold text-ink-2 bg-surface-3 px-1.5 py-0.2 rounded border border-line/60">
-                        {agentRoleLabel}
-                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span>{agentRoleLabel}</span>
                     </span>
                   </span>
                   <ChevronsUpDown className="w-3.5 h-3.5 text-ink-3 shrink-0" />

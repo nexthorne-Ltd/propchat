@@ -13,6 +13,7 @@ import {
   ExternalLink,
   FileText,
   GitMerge,
+  Info,
   Lock,
   MoreHorizontal,
   PanelRightClose,
@@ -58,6 +59,7 @@ import { sound } from '@/lib/sound';
 import { Avatar } from '@/components/ui/Avatar';
 import { Menu } from '@/components/ui/Menu';
 import { ChannelBadge } from '@/components/ui/ChannelBadge';
+import { ConversationEvent } from '@/components/ui/ConversationEvent';
 import { ChatThreadSkeleton } from '@/components/ui/Skeleton';
 import {
   MessageTicks,
@@ -1306,13 +1308,11 @@ export function ChatThread({
       });
 
       const data = await res.json();
+      // Shown as a suggestion card above the composer, never written straight
+      // into it: the agent may already be typing, and a draft must be read
+      // and chosen (Use) before it can be sent.
       if (data.draft) {
-        setInputText(data.draft);
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto';
-          textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
-          textareaRef.current.focus();
-        }
+        setSuggestedReplies([{ title: 'AI draft', text: data.draft }]);
       }
     } catch (err) {
       console.error('Failed to get AI draft:', err);
@@ -1550,14 +1550,31 @@ export function ChatThread({
     if (key !== lastDay) {
       lastDay = key;
       rendered.push(
-        <div key={`day-${key}`} className="flex items-center gap-3 py-2">
-          <span className="flex-1 h-px bg-line" />
-          <span className="text-2xs font-medium text-ink-3">
-            {dayLabel(msg.created_at)}
-          </span>
-          <span className="flex-1 h-px bg-line" />
+        <ConversationEvent key={`day-${key}`} rule className="py-2 text-2xs font-medium">
+          {dayLabel(msg.created_at)}
+        </ConversationEvent>
+      );
+    }
+
+    // System rows (auto-resolve, merges) are events, not speech: a centred
+    // line, never a bubble on the visitor's side.
+    if (msg.sender_type === 'system' && !msg.is_internal) {
+      const text = (msg.content || '').replace(/^[\uD800-\uDBFF][\uDC00-\uDFFF]️?\s*/, '');
+      const icon = /merg/i.test(text) ? (
+        <GitMerge />
+      ) : /resolv|closed|solved/i.test(text) ? (
+        <CheckCircle2 />
+      ) : (
+        <Info />
+      );
+      rendered.push(
+        <div key={msg.id} id={`msg-${msg.id}`} className="scroll-mt-24">
+          <ConversationEvent icon={icon} time={formatTime(msg.created_at)}>
+            {text}
+          </ConversationEvent>
         </div>
       );
+      return;
     }
 
     if (msg.is_internal) {
@@ -1565,19 +1582,19 @@ export function ChatThread({
         <div
           key={msg.id}
           id={`msg-${msg.id}`}
-          className="rounded-xl border border-warn-line/80 bg-warn/10 px-4 py-3 group/note relative shadow-xs"
+          className="rounded-md border border-warn-line bg-warn-soft px-4 py-3 group/note relative"
         >
           <div className="flex items-center justify-between gap-3 mb-1.5">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warn">
-              <Lock className="w-3.5 h-3.5 text-warn" />
-              Internal note · {msg.agent?.name || 'Teammate'}
+            <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-warn">
+              <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+              {msg.agent?.name || 'Teammate'} · Internal note
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-2xs text-warn/70 tabular-nums">
+              <span className="text-2xs text-warn tabular-nums">
                 {formatTime(msg.created_at)}
               </span>
               {msg.metadata?.is_edited && (
-                <span className="text-2xs text-warn/70 italic">(edited)</span>
+                <span className="text-2xs text-warn italic">(edited)</span>
               )}
               <button
                 type="button"
@@ -1588,7 +1605,7 @@ export function ChatThread({
                   'transition-opacity p-0.5 cursor-pointer',
                   copiedMessageId === msg.id
                     ? 'opacity-100 text-success'
-                    : 'opacity-0 group-hover/note:opacity-100 text-warn/70 hover:text-warn'
+                    : 'opacity-0 group-hover/note:opacity-100 text-warn hover:text-warn'
                 )}
               >
                 {copiedMessageId === msg.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
@@ -1597,7 +1614,7 @@ export function ChatThread({
                 type="button"
                 title="Edit note"
                 onClick={() => startEditing(msg)}
-                className="opacity-0 group-hover/note:opacity-100 text-warn/70 hover:text-warn transition-opacity p-0.5 cursor-pointer"
+                className="opacity-0 group-hover/note:opacity-100 text-warn hover:text-warn transition-opacity p-0.5 cursor-pointer"
               >
                 <Pencil className="w-3 h-3" />
               </button>
@@ -1605,7 +1622,7 @@ export function ChatThread({
                 type="button"
                 title="Delete note"
                 onClick={() => setDeleteConfirmMsg(msg)}
-                className="opacity-0 group-hover/note:opacity-100 text-warn/70 hover:text-danger transition-opacity p-0.5 cursor-pointer"
+                className="opacity-0 group-hover/note:opacity-100 text-warn hover:text-danger transition-opacity p-0.5 cursor-pointer"
               >
                 <Trash2 className="w-3 h-3" />
               </button>
@@ -1631,7 +1648,7 @@ export function ChatThread({
                 placeholder="Edit internal note..."
               />
               <div className="mt-1.5 flex items-center justify-between gap-2 text-2xs">
-                <span className="text-warn/80 text-2xs">Esc to cancel • Enter to save</span>
+                <span className="text-warn text-2xs">Esc to cancel • Enter to save</span>
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
@@ -1645,7 +1662,7 @@ export function ChatThread({
                     type="button"
                     onClick={() => handleSaveEdit(msg.id)}
                     disabled={isSavingEdit || !editingContent.trim()}
-                    className="px-2.5 py-0.5 rounded bg-warn text-white font-medium hover:bg-warn transition-colors flex items-center gap-1 shadow-xs disabled:opacity-50 cursor-pointer"
+                    className="px-2.5 py-0.5 rounded bg-warn text-ink-inv font-medium hover:bg-warn transition-colors flex items-center gap-1 shadow-xs disabled:opacity-50 cursor-pointer"
                   >
                     {isSavingEdit ? (
                       <>
@@ -1663,12 +1680,12 @@ export function ChatThread({
               </div>
             </div>
           ) : (
-            <p className="whitespace-pre-wrap text-ui leading-relaxed text-warn">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">
               <Linkified text={msg.content} />
             </p>
           )}
-          <p className="mt-2 text-2xs text-warn/80 font-medium">
-            🔒 Only visible to your team — never sent to the visitor.
+          <p className="mt-2 text-2xs text-warn font-medium">
+            Only your team sees this. It is never sent to the visitor.
           </p>
         </div>
       );
@@ -1937,7 +1954,7 @@ export function ChatThread({
                           className={cn(
                             "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs transition-colors cursor-pointer",
                             ratedMessages[msg.id] === 'good'
-                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/30"
+                              ? "bg-success-soft text-success font-semibold border border-success-line"
                               : "hover:bg-surface text-ink-3 hover:text-ink"
                           )}
                           title="Mark as good / helpful"
@@ -1951,8 +1968,8 @@ export function ChatThread({
                           className={cn(
                             "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs transition-colors cursor-pointer",
                             ratedMessages[msg.id] === 'wrong'
-                              ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 font-semibold border border-rose-500/30"
-                              : "hover:bg-surface text-ink-3 hover:text-rose-500"
+                              ? "bg-danger-soft text-danger font-semibold border border-danger-line"
+                              : "hover:bg-surface text-ink-3 hover:text-danger"
                           )}
                           title="Mark as wrong (logs to Unanswered Questions for training)"
                         >
@@ -2193,26 +2210,26 @@ export function ChatThread({
             muted={!visitor?.name && !visitor?.email}
             className="shrink-0"
           />
-          <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
-            <h2
-              // Long visitor names end in an ellipsis instead of being cut
-              // off mid-letter by the action buttons.
-              className="text-ui sm:text-sm font-bold tracking-tight text-ink min-w-0 truncate"
-              title={displayName}
-            >
-              {displayName}
-            </h2>
-            {conversation.channel && conversation.channel !== 'web' && (
-              <ChannelBadge
-                channel={conversation.channel}
-                showLabel={false}
-                size="xs"
-              />
-            )}
+          {/* Name on its own line, details under it: sharing one line made the
+              name the first thing to be squeezed down to an ellipsis. */}
+          <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h2
+                className="text-sm font-semibold tracking-tight text-ink min-w-0 truncate leading-5"
+                title={displayName}
+              >
+                {displayName}
+              </h2>
+              {conversation.channel && conversation.channel !== 'web' && (
+                <ChannelBadge
+                  channel={conversation.channel}
+                  showLabel={false}
+                  size="xs"
+                />
+              )}
+            </div>
 
-            {/* Plain text status & location info (No fake button pills) */}
-            <span className="text-xs text-ink-3 truncate hidden sm:inline-flex items-center gap-1 ml-1 min-w-0 shrink">
-              <span>·</span>
+            <span className="text-2xs leading-4 text-ink-3 truncate hidden sm:flex items-center gap-1 min-w-0">
               {isOnline ? (
                 <span className="inline-flex items-center gap-1 text-success font-medium shrink-0">
                   <span className="live-dot" />
@@ -2224,7 +2241,7 @@ export function ChatThread({
               {visitorPlace.label && (
                 <>
                   <span>·</span>
-                  <span className="inline-flex items-center gap-1 text-ink-3 min-w-0 truncate" title={visitorPlace.label}>
+                  <span className="inline-flex items-center gap-1 text-ink-3 shrink-0" title={visitorPlace.label}>
                     <CountryFlag
                       flag={visitorPlace.flag}
                       countryCode={visitorPlace.countryCode}
@@ -2379,11 +2396,12 @@ export function ChatThread({
           {onToggleDetailsSidebar && (
             <button
               onClick={onToggleDetailsSidebar}
-              title={isDetailsSidebarOpen ? "Hide CRM details panel" : "Show CRM details panel"}
-              aria-label={isDetailsSidebarOpen ? "Hide CRM details panel" : "Show CRM details panel"}
+              title={isDetailsSidebarOpen ? "Hide customer details" : "Show customer details"}
+              aria-label={isDetailsSidebarOpen ? "Hide customer details" : "Show customer details"}
+              aria-pressed={!!isDetailsSidebarOpen}
               className={cn(
                 "btn btn-sm btn-secondary w-8 h-8 px-0 flex items-center justify-center shrink-0 transition-all",
-                isDetailsSidebarOpen ? "text-accent bg-accent/10 border-accent/30" : "text-ink-3 hover:text-ink"
+                isDetailsSidebarOpen ? "text-accent bg-accent-soft border-accent-line" : "text-ink-3 hover:text-ink"
               )}
             >
               {isDetailsSidebarOpen ? (
@@ -2482,7 +2500,7 @@ export function ChatThread({
                 isFullAutopilot
                   ? 'bg-accent text-accent-ink font-semibold shadow-xs'
                   : isAiDisabled
-                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium hover:bg-amber-500/25'
+                  ? 'bg-warn-soft text-warn border border-warn-line font-medium hover:bg-warn-line'
                   : isWorkspaceFirstReplyOn
                   ? 'bg-accent/15 text-accent border border-accent/30 font-medium'
                   : 'bg-surface-3 text-ink-3 hover:text-ink hover:bg-surface-3/80 border border-line'
@@ -2497,7 +2515,7 @@ export function ChatThread({
                   : 'AI Autopilot is OFF (click to activate)'
               }
             >
-              <Bot className={cn('w-3 h-3', isFullAutopilot ? 'text-accent-ink' : isAiDisabled ? 'text-amber-600 dark:text-amber-400' : isWorkspaceFirstReplyOn ? 'text-accent' : 'text-ink-3')} />
+              <Bot className={cn('w-3 h-3', isFullAutopilot ? 'text-accent-ink' : isAiDisabled ? 'text-warn' : isWorkspaceFirstReplyOn ? 'text-accent' : 'text-ink-3')} />
               <span>
                 {isFullAutopilot
                   ? 'Autopilot'
@@ -2671,7 +2689,7 @@ export function ChatThread({
         {noteErrorToast && (
           <div
             role="alert"
-            className="absolute bottom-[calc(100%+8px)] left-5 right-5 z-50 rounded-xl bg-danger text-white shadow-xl p-3 flex items-center justify-between gap-2.5 animate-pop"
+            className="absolute bottom-[calc(100%+8px)] left-5 right-5 z-50 rounded-xl bg-danger text-ink-inv shadow-xl p-3 flex items-center justify-between gap-2.5 animate-pop"
           >
             <div className="flex items-center gap-2 min-w-0">
               <AlertTriangle className="w-4 h-4 shrink-0 text-white" />
@@ -2778,63 +2796,78 @@ export function ChatThread({
         )}
 
         {/* Suggested replies from the configured model provider */}
+        {/* AI suggestions: a draft is only ever put into the composer for the
+            agent to read and send. Nothing here sends on its own. */}
         {suggestedReplies.length > 0 && (
-          <div className="mb-3 p-2.5 rounded-xl bg-accent-soft/40 border border-accent-line flex flex-col gap-1.5 animate-rise">
-            <div className="flex items-center justify-between text-2xs text-accent font-semibold px-0.5">
-              <span className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                Suggested replies (click to insert):
+          <section
+            aria-label="Suggested replies"
+            className="mb-3 p-3 rounded-lg bg-accent-soft border border-accent-line flex flex-col gap-2 animate-fade"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-2xs font-semibold text-accent">
+                <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                {suggestedReplies.length === 1 ? 'Suggested reply' : `${suggestedReplies.length} suggested replies`}
               </span>
               <button
                 type="button"
                 onClick={() => setSuggestedReplies([])}
-                className="opacity-60 hover:opacity-100 transition-opacity p-0.5 rounded"
-                title="Dismiss suggestions"
+                className="btn btn-ghost btn-xs"
               >
-                <X className="w-3 h-3" />
+                Dismiss all
               </button>
             </div>
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {replyLocked && (
+              <p className="text-2xs text-ink-2">The bot is answering this conversation. Take over to send a draft.</p>
+            )}
+            <ul className="flex flex-col gap-2 max-h-56 overflow-y-auto">
               {suggestedReplies.map((sr, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    setInputText(sr.text);
-                    if (textareaRef.current) {
-                      textareaRef.current.style.height = 'auto';
-                      textareaRef.current.focus();
-                    }
-                  }}
-                  className="shrink-0 max-w-[260px] text-left p-2 rounded-lg bg-surface text-ink text-xs border border-line hover:border-accent hover:shadow-xs transition-all group"
-                  title={sr.text}
-                >
-                  <span className="font-semibold text-2xs text-accent flex items-center gap-1 mb-0.5">
-                    <Sparkles className="w-2.5 h-2.5" />
-                    {sr.title}
-                  </span>
-                  <span className="line-clamp-2 text-xs leading-snug text-ink-2 group-hover:text-ink">
-                    {sr.text}
-                  </span>
-                </button>
+                <li key={idx} className="rounded-md bg-surface border border-line p-2.5">
+                  <p className="text-2xs font-semibold text-ink-2 mb-0.5">{sr.title}</p>
+                  <p className="text-sm leading-snug text-ink line-clamp-3 whitespace-pre-wrap">{sr.text}</p>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInputText(sr.text);
+                        setSuggestedReplies([]);
+                        if (textareaRef.current) {
+                          textareaRef.current.style.height = 'auto';
+                          textareaRef.current.focus();
+                        }
+                      }}
+                      className="btn btn-primary btn-xs"
+                    >
+                      Use
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSuggestedReplies((prev) => prev.filter((_, i) => i !== idx))}
+                      className="btn btn-ghost btn-xs"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
         )}
 
         {/* Unified Linear-Style Composer Card */}
         <div
           className={cn(
-            'rounded-2xl border transition-all duration-200 shadow-xs focus-within:shadow-md relative bg-surface',
+            // Note mode tints the whole composer, not just the tab, so a note
+            // can't be mistaken for a reply while it is being written.
+            'rounded-lg border transition-colors duration-200 relative',
             isInternalMode
-              ? 'bg-warn/5 border-warn/40 focus-within:border-warn/80 focus-within:ring-2 focus-within:ring-warn/20'
-              : 'bg-surface border-line focus-within:border-accent/80 focus-within:ring-2 focus-within:ring-accent/20'
+              ? 'bg-warn-soft border-warn-line focus-within:border-warn'
+              : 'bg-surface border-line-2 focus-within:border-accent focus-within:shadow-[var(--ds-ring)]'
           )}
         >
           {/* Replying to — kept above the toolbar so the message being
               answered stays in view while the answer is written. */}
           {replyPreview && !isInternalMode && (
-            <div className="flex items-start gap-2 px-3 pt-2.5 pb-2 border-b border-line/40 bg-accent-soft/30 rounded-t-2xl">
+            <div className="flex items-start gap-2 px-3 pt-2.5 pb-2 border-b border-line bg-accent-soft rounded-t-lg">
               <span className="mt-0.5 w-0.5 self-stretch rounded-full bg-accent shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-2xs font-semibold text-accent">
@@ -2859,50 +2892,41 @@ export function ChatThread({
           {/* Composer Header Bar */}
           <div
             className={cn(
-              'px-3 py-1.5 flex items-center justify-between gap-2 border-b border-line/40 bg-surface-2/30 min-w-0',
-              !replyPreview && 'rounded-t-2xl'
+              'px-2 pt-2 pb-1 flex items-center justify-between gap-2 min-w-0',
+              !replyPreview && 'rounded-t-lg'
             )}
           >
-            {/* Mode Switcher: Reply vs Internal Note */}
-            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-surface-2 border border-line/60 shrink-0">
+            {/* Mode switcher: the segmented control from docs/DESIGN.md */}
+            <div role="tablist" aria-label="Message type" className="tabs-pill shrink-0">
               {!isLightAgent && (
-              <button
-                type="button"
-                onClick={() => setComposerMode('reply')}
-                className={cn(
-                  'h-6 px-2.5 rounded-md text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer',
-                  composerMode === 'reply'
-                    ? 'bg-surface text-ink font-bold shadow-xs'
-                    : 'text-ink-3 hover:text-ink'
-                )}
-              >
-                <Send className="w-3 h-3 shrink-0" />
-                <span>Reply</span>
-              </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={composerMode === 'reply'}
+                  onClick={() => setComposerMode('reply')}
+                  className="tab text-xs"
+                >
+                  <Send className="w-3 h-3 shrink-0" aria-hidden="true" />
+                  Reply
+                </button>
               )}
               <button
                 type="button"
+                role="tab"
+                aria-selected={composerMode === 'internal'}
                 onClick={() => setComposerMode('internal')}
-                className={cn(
-                  'h-6 px-2.5 rounded-md text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer',
-                  composerMode === 'internal'
-                    ? 'bg-warn/20 text-warn font-bold shadow-xs'
-                    : 'text-ink-3 hover:text-ink'
-                )}
+                className={cn('tab text-xs', composerMode === 'internal' && 'text-warn')}
               >
-                <Lock className="w-3 h-3 shrink-0" />
-                <span>Internal Note</span>
+                <Lock className="w-3 h-3 shrink-0" aria-hidden="true" />
+                Internal note
               </button>
             </div>
 
-            {/* Subtle Context / Author info */}
-            <div className="text-2xs text-ink-3 truncate">
+            <div className="text-2xs truncate">
               {isInternalMode ? (
-                <span className="text-warn font-medium flex items-center gap-1">
-                  <span>🔒 Only visible to team</span>
-                </span>
+                <span className="hidden sm:inline text-warn font-medium">Only your team sees notes</span>
               ) : (
-                <span className="hidden sm:inline text-ink-3/80">
+                <span className="hidden sm:inline text-ink-3">
                   Replying as <strong className="text-ink-2 font-medium">{currentAgent?.name || 'Agent'}</strong>
                 </span>
               )}
@@ -2988,10 +3012,10 @@ export function ChatThread({
           )}
 
           {!replyLocked && !isInternalMode && conversation.ai_mode === 'disabled' && onToggleAiMode && (
-            <div className="px-3 py-1.5 flex items-center gap-2 border-b border-line/40 bg-amber-500/10 dark:bg-amber-500/15 text-xs text-ink">
-              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 animate-pulse" />
-              <span className="flex-1 min-w-0 text-2xs font-medium text-amber-900 dark:text-amber-200">
-                Human agent mode active (AI paused).
+            <div className="px-3 py-1.5 flex items-center gap-2 border-y border-warn-line bg-warn-soft text-xs">
+              <span className="w-2 h-2 rounded-full bg-warn shrink-0" aria-hidden="true" />
+              <span className="flex-1 min-w-0 text-2xs font-medium text-warn">
+                The bot is paused while a person handles this conversation.
               </span>
               <button
                 type="button"
@@ -2999,7 +3023,7 @@ export function ChatThread({
                 className="h-6 px-2.5 rounded-md text-2xs font-bold bg-accent hover:bg-accent-hover text-accent-ink shrink-0 inline-flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
               >
                 <Bot className="w-3 h-3" />
-                <span>Turn AI Mode On</span>
+                <span>Turn the bot on</span>
               </button>
             </div>
           )}
@@ -3016,7 +3040,7 @@ export function ChatThread({
               onPaste={handlePaste}
               placeholder={
                 isInternalMode
-                  ? 'Write an internal note for your team (visitor will not see this)…'
+                  ? 'Write a note your team will see… (@ to mention)'
                   : replyLocked
                   ? 'AI autopilot is on — take over to reply'
                   : pendingAttachment
@@ -3359,7 +3383,7 @@ export function ChatThread({
                   (!inputText.trim() && !pendingAttachment) || isSending || isTranslating || replyLocked
                     ? 'bg-surface-3 text-ink-3 cursor-not-allowed opacity-50'
                     : isInternalMode
-                    ? 'bg-warn hover:bg-warn text-white shadow-sm hover:scale-102'
+                    ? 'bg-warn hover:bg-warn text-ink-inv shadow-sm hover:scale-102'
                     : autoTranslateEnabled && targetLanguage !== 'en'
                     ? 'bg-accent hover:bg-accent text-white shadow-sm hover:scale-102'
                     : 'bg-accent hover:bg-accent-hover text-accent-ink shadow-sm hover:scale-102'
@@ -3597,7 +3621,7 @@ export function ChatThread({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-xs text-accent hover:text-blue-200 hover:underline inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 transition-colors"
+                className="text-xs text-accent hover:text-accent-hover hover:underline inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 transition-colors"
               >
                 <span>Open original in new tab</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -3648,7 +3672,7 @@ export function ChatThread({
                 type="button"
                 onClick={handleConfirmDelete}
                 disabled={isDeleting}
-                className="px-4 py-1.5 rounded-xl bg-danger text-white text-xs font-medium hover:bg-danger/90 transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-danger text-ink-inv text-xs font-medium hover:bg-danger/90 transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
               >
                 {isDeleting ? (
                   <>
@@ -3669,7 +3693,7 @@ export function ChatThread({
       {/* Toast Notification */}
       {saveAnswerSuccessToast && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-ink text-surface shadow-xl text-xs font-medium border border-line animate-in fade-in slide-in-from-bottom-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
           <span>{saveAnswerSuccessToast}</span>
         </div>
       )}

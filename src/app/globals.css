@@ -60,6 +60,17 @@
   --ds-bubble-out: #2850e8;
   --ds-bubble-out-ink: #ffffff;
 
+  /* Avatar palette, picked deterministically per visitor (Avatar.tsx). The
+     same in both themes so a visitor keeps one colour; initials are white
+     and large (600 weight), so 3:1 is the floor here, not 4.5:1. */
+  --ds-avatar-1: #2e5bff;
+  --ds-avatar-2: #0f9d76;
+  --ds-avatar-3: #7c5cff;
+  --ds-avatar-4: #d97706;
+  --ds-avatar-5: #e11d48;
+  --ds-avatar-6: #0891b2;
+  --ds-avatar-ink: #ffffff;
+
   /* --- Status. Text colours are dark enough to read on their own -soft fill. --- */
   --ds-success: #0b7a5c;
   --ds-success-soft: #e6f6f1;

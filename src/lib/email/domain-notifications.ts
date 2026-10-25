@@ -4,6 +4,7 @@ import { sendSmtpEmail } from './smtp';
 import { loadWorkspaceSmtp } from './workspace-smtp';
 import { renderEmail } from './layout';
 import { cleanDomain, getPlatformOrigin, splitDomain, CNAME_TARGET } from '@/lib/domain';
+import { DEFAULT_BRAND_COLOR } from '@/lib/brand';
 
 interface DomainLiveEmailParams {
   workspace: Workspace;
@@ -65,7 +66,7 @@ export async function sendDomainLiveEmail(params: DomainLiveEmailParams): Promis
   const { workspace, domain } = params;
   const clean = cleanDomain(domain);
   const helpCenterUrl = `https://${clean}`;
-  const brand = workspace.brand_color || '#4f46e5';
+  const brand = workspace.brand_color || DEFAULT_BRAND_COLOR;
 
   const { email, name } = await getWorkspaceOwnerEmail(workspace.id, workspace.owner_id);
   if (!email) {
@@ -119,7 +120,7 @@ export async function sendDomainFailed24hEmail(params: DomainFailedEmailParams):
   const { workspace, domain, reason, detectedCname, isCloudflare } = params;
   const clean = cleanDomain(domain);
   const { hostRecord } = splitDomain(clean);
-  const brand = workspace.brand_color || '#4f46e5';
+  const brand = workspace.brand_color || DEFAULT_BRAND_COLOR;
   // Workspace owners manage domains in their dashboard, not the platform admin panel.
   const settingsUrl = `${getPlatformOrigin()}/dashboard`;
 

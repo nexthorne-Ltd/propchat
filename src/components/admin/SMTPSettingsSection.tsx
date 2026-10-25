@@ -337,7 +337,7 @@ export function SMTPSettingsSection({
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="card border-2 border-line-2 bg-surface p-6 shadow-xs space-y-4">
+      <div className="card bg-surface p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-start gap-4">
             <div className="rounded-xl bg-accent text-white p-3 shadow-sm">
@@ -349,7 +349,7 @@ export function SMTPSettingsSection({
                   {workspace.name} Email (SMTP) Integration
                 </h3>
                 <span className="px-2 py-0.5 rounded-md text-2xs font-bold bg-surface-2 border border-line text-ink-2">
-                  Company Workspace
+                  Company workspace
                 </span>
               </div>
               <p className="text-ui text-ink-2 mt-0.5 leading-relaxed">
@@ -360,10 +360,10 @@ export function SMTPSettingsSection({
           <button
             type="button"
             onClick={() => applyPreset('hostinger')}
-            className="btn btn-sm btn-secondary font-bold text-xs gap-1.5 border-2 border-line-2 hover:border-line-3 text-accent shrink-0 shadow-xs"
+            className="btn btn-sm btn-secondary font-bold text-xs gap-1.5 hover:border-line-3 text-accent shrink-0 shadow-xs"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            Auto-fill Hostinger Settings
+            Auto-fill Hostinger settings
           </button>
         </div>
 
@@ -436,9 +436,9 @@ export function SMTPSettingsSection({
       </div>
 
       {/* Main Form */}
-      <div className="card border-2 border-line-2 bg-surface p-6 shadow-xs space-y-6">
+      <div className="card bg-surface p-6 shadow-xs space-y-6">
         {/* Toggle 5-min alert */}
-        <div className="flex items-center justify-between p-4.5 rounded-xl bg-surface-2/70 border-2 border-line-2 shadow-2xs">
+        <div className="flex items-center justify-between p-4.5 panel">
           <div className="space-y-0.5 pr-4">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-accent" />
@@ -473,7 +473,7 @@ export function SMTPSettingsSection({
               value={smtp.host}
               onChange={(e) => setSmtp({ ...smtp, host: e.target.value })}
               placeholder="smtp.hostinger.com"
-              className="input text-sm font-medium border-2 border-line-2 focus:border-accent text-ink"
+              className="input text-sm font-medium focus:border-accent text-ink"
             />
             <p className="text-xs text-ink-2 mt-1">
               Hostinger: <code className="font-mono font-bold text-accent">smtp.hostinger.com</code> &bull; Gmail: <code className="font-mono font-bold text-accent">smtp.gmail.com</code>
@@ -482,7 +482,7 @@ export function SMTPSettingsSection({
 
           <div>
             <label className="block text-ui font-bold text-ink mb-1.5">
-              SMTP Port &amp; Encryption
+              SMTP port &amp; encryption
             </label>
             <div className="flex gap-2">
               <input
@@ -497,7 +497,7 @@ export function SMTPSettingsSection({
                   });
                 }}
                 placeholder="465"
-                className="input w-28 text-sm font-mono font-bold border-2 border-line-2 focus:border-accent text-ink"
+                className="input w-28 text-sm font-mono font-bold focus:border-accent text-ink"
               />
               <select
                 value={smtp.port === 465 ? '465' : '587'}
@@ -509,7 +509,7 @@ export function SMTPSettingsSection({
                     secure: portNum === 465,
                   });
                 }}
-                className="input flex-1 text-sm font-semibold border-2 border-line-2 focus:border-accent text-ink"
+                className="input flex-1 text-sm font-semibold focus:border-accent text-ink"
               >
                 <option value="465">Port 465 (SSL - Recommended)</option>
                 <option value="587">Port 587 (TLS / STARTTLS)</option>
@@ -538,7 +538,7 @@ export function SMTPSettingsSection({
                 }));
               }}
               placeholder="support@company.com"
-              className="input text-sm font-medium border-2 border-line-2 focus:border-accent text-ink"
+              className="input text-sm font-medium focus:border-accent text-ink"
             />
             <p className="text-xs text-ink-2 mt-1">
               Your primary authenticated mailbox address
@@ -555,7 +555,7 @@ export function SMTPSettingsSection({
                 value={smtp.pass}
                 onChange={(e) => setSmtp({ ...smtp, pass: e.target.value })}
                 placeholder={hasSavedPassword ? 'Saved. Leave empty to keep it' : '••••••••••••••••'}
-                className="input text-sm font-medium pr-10 border-2 border-line-2 focus:border-accent text-ink"
+                className="input text-sm font-medium pr-10 focus:border-accent text-ink"
               />
               <button
                 type="button"
@@ -578,7 +578,7 @@ export function SMTPSettingsSection({
                   onClick={() => setSmtp((prev) => ({ ...prev, from_email: prev.user.trim() }))}
                   className="text-xs font-bold text-accent hover:underline"
                 >
-                  Use Hostinger Email
+                  Use Hostinger email
                 </button>
               )}
             </div>
@@ -594,7 +594,7 @@ export function SMTPSettingsSection({
                 }
               }}
               placeholder={smtp.user || 'helpdesk@range4ex.com'}
-              className={`input text-sm font-medium border-2 ${
+              className={`input text-sm font-medium ${
                 smtp.from_email && !isValidEmail(smtp.from_email)
                   ? 'border-danger focus:border-danger'
                   : 'border-line-2 focus:border-accent text-ink'
@@ -614,14 +614,14 @@ export function SMTPSettingsSection({
 
           <div>
             <label className="block text-ui font-bold text-ink mb-1.5">
-              Sender Name
+              Sender name
             </label>
             <input
               type="text"
               value={smtp.from_name}
               onChange={(e) => setSmtp({ ...smtp, from_name: e.target.value })}
               placeholder={workspace.name || 'Range HELP Desk'}
-              className="input text-sm font-semibold border-2 border-line-2 focus:border-accent text-ink"
+              className="input text-sm font-semibold focus:border-accent text-ink"
             />
           </div>
         </div>
@@ -629,7 +629,7 @@ export function SMTPSettingsSection({
         {/* Status Alerts */}
         {statusMessage && (
           <div
-            className={`p-4 rounded-xl text-sm font-semibold flex items-start gap-3 border-2 shadow-xs ${
+            className={`p-4 rounded-md text-sm font-medium flex items-start gap-3 border ${
               statusMessage.type === 'success'
                 ? 'bg-success/10 text-success border-success/30'
                 : statusMessage.type === 'error'
@@ -651,10 +651,10 @@ export function SMTPSettingsSection({
               type="button"
               disabled={testing}
               onClick={() => handleTestConnection(false)}
-              className="btn btn-sm btn-secondary font-bold text-xs gap-1.5 border-2 border-line-2 hover:border-line-3"
+              className="btn btn-sm btn-secondary font-bold text-xs gap-1.5 hover:border-line-3"
             >
               {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5 text-accent" />}
-              Test Connection
+              Test connection
             </button>
 
             <div className="flex items-center gap-1.5">
@@ -663,7 +663,7 @@ export function SMTPSettingsSection({
                 placeholder="test@example.com"
                 value={testEmailTo}
                 onChange={(e) => setTestEmailTo(e.target.value)}
-                className="input w-48 text-xs font-medium border-2 border-line-2 py-1.5 h-8"
+                className="input w-48 text-xs font-medium py-1.5 h-8"
               />
               <button
                 type="button"
@@ -672,7 +672,7 @@ export function SMTPSettingsSection({
                 className="btn btn-sm btn-accent font-bold text-xs gap-1.5 shadow-xs"
               >
                 <Send className="h-3 w-3" />
-                Send Test Email
+                Send test email
               </button>
             </div>
 
@@ -707,7 +707,7 @@ export function SMTPSettingsSection({
               className="btn btn-sm btn-primary font-bold text-sm px-5 py-2 shadow-sm gap-2"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Save Settings
+              Save settings
             </button>
           </div>
         </div>

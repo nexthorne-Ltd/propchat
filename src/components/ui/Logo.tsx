@@ -41,10 +41,10 @@ export function Logo({
       {showText && (
         <span
           className={`font-bold tracking-tight text-ink flex items-center ${
-            pixelSize >= 40 ? 'text-[19px]' : pixelSize >= 32 ? 'text-[17px]' : 'text-[15px]'
+            pixelSize >= 40 ? 'text-lg' : pixelSize >= 32 ? 'text-base' : 'text-md'
           } ${textClassName}`}
         >
-          Zen<span className="text-blue-600 dark:text-blue-500">-try</span>
+          Zen<span className="text-accent">-try</span>
         </span>
       )}
     </div>

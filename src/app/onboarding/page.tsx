@@ -245,7 +245,7 @@ export default function OnboardingPage() {
                     <span
                       className={`w-6 h-6 rounded-full flex items-center justify-center text-2xs font-semibold transition-colors ${
                         done
-                          ? 'bg-success text-white'
+                          ? 'bg-success text-ink-inv'
                           : current
                           ? 'bg-ink text-ink-inv'
                           : 'bg-surface-3 text-ink-3'

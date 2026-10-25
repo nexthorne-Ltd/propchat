@@ -12,6 +12,7 @@ import {
 import { Workspace } from '@/types/database';
 import { cn } from '@/lib/utils';
 import { Avatar } from '@/components/ui/Avatar';
+import { DEFAULT_BRAND_COLOR } from '@/lib/brand';
 
 interface InstallationGuideProps {
   workspace: Workspace | null;
@@ -65,7 +66,7 @@ export function InstallationGuide({
           'Save and deploy — the launcher appears for every visitor.',
         ].map((s, i) => (
           <li key={i} className="flex gap-3.5 items-center">
-            <span className="shrink-0 w-6 h-6 rounded-lg bg-accent text-white text-xs font-extrabold flex items-center justify-center shadow-xs">
+            <span className="shrink-0 w-6 h-6 rounded-sm bg-accent-soft text-accent text-xs font-semibold flex items-center justify-center">
               {i + 1}
             </span>
             <span className="text-ui leading-relaxed text-ink font-medium">{s}</span>
@@ -82,7 +83,7 @@ export function InstallationGuide({
           'Paste the snippet into the Footer box and save.',
         ].map((s, i) => (
           <li key={i} className="flex gap-3.5 items-center">
-            <span className="shrink-0 w-6 h-6 rounded-lg bg-accent text-white text-xs font-extrabold flex items-center justify-center shadow-xs">
+            <span className="shrink-0 w-6 h-6 rounded-sm bg-accent-soft text-accent text-xs font-semibold flex items-center justify-center">
               {i + 1}
             </span>
             <span className="text-ui leading-relaxed text-ink font-medium">{s}</span>
@@ -99,7 +100,7 @@ export function InstallationGuide({
           'Open theme.liquid, paste above </body>, then Save.',
         ].map((s, i) => (
           <li key={i} className="flex gap-3.5 items-center">
-            <span className="shrink-0 w-6 h-6 rounded-lg bg-accent text-white text-xs font-extrabold flex items-center justify-center shadow-xs">
+            <span className="shrink-0 w-6 h-6 rounded-sm bg-accent-soft text-accent text-xs font-semibold flex items-center justify-center">
               {i + 1}
             </span>
             <span className="text-ui leading-relaxed text-ink font-medium">{s}</span>
@@ -197,11 +198,11 @@ export default function RootLayout({ children }) {
                     <span
                       className="w-2.5 h-2.5 rounded-full border border-line"
                       style={{
-                        backgroundColor: workspace?.brand_color || '#2e5bff',
+                        backgroundColor: workspace?.brand_color || DEFAULT_BRAND_COLOR,
                       }}
                     />
                     <span className="font-mono uppercase">
-                      {workspace?.brand_color || '#2e5bff'}
+                      {workspace?.brand_color || DEFAULT_BRAND_COLOR}
                     </span>
                   </span>
                   <span className="font-mono truncate">
@@ -223,10 +224,10 @@ export default function RootLayout({ children }) {
           </div>
 
           {/* Snippet */}
-          <div className="card p-6 border-2 border-line-2 shadow-xs space-y-3">
+          <div className="card p-6 shadow-xs space-y-3">
             <div className="flex items-center justify-between mb-1">
               <div>
-                <h2 className="text-md font-bold text-ink">Your Embed Code</h2>
+                <h2 className="text-md font-bold text-ink">Your embed code</h2>
                 <p className="text-xs text-ink-2">Copy this snippet and paste it right before the closing &lt;/body&gt; tag on your website.</p>
               </div>
               <button onClick={copyCode} className="btn btn-sm btn-primary font-bold shadow-xs px-4 py-2 shrink-0">
@@ -244,16 +245,16 @@ export default function RootLayout({ children }) {
               </button>
             </div>
 
-            <pre className="p-4.5 rounded-xl bg-invert text-success font-mono text-xs border-2 border-line-3 shadow-inner overflow-x-auto leading-relaxed">{embedScript}</pre>
+            <pre className="code-block p-4.5 leading-relaxed">{embedScript}</pre>
           </div>
 
           {/* Platform guides */}
-          <div className="card p-6 border-2 border-line-2 shadow-xs space-y-4">
+          <div className="card p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between gap-4 flex-wrap border-b border-line-2 pb-3.5">
               <h2 className="text-md font-bold text-ink">
-                Platform-Specific Installation Steps
+                Platform-Specific installation steps
               </h2>
-              <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-surface-2 border-2 border-line-2">
+              <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-surface-2">
                 {(Object.keys(PLATFORM_LABEL) as Platform[]).map((p) => (
                   <button
                     key={p}
@@ -275,7 +276,7 @@ export default function RootLayout({ children }) {
           </div>
 
           {/* Verify */}
-          <div className="card p-5 border-2 border-line-2 shadow-xs flex items-center justify-between gap-4 flex-wrap bg-surface">
+          <div className="card p-5 shadow-xs flex items-center justify-between gap-4 flex-wrap bg-surface">
             <div className="flex items-center gap-3 min-w-0">
               <div className={cn(
                 'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-2xs',
@@ -303,7 +304,7 @@ export default function RootLayout({ children }) {
               )}`}
               target="_blank"
               rel="noreferrer"
-              className="btn btn-sm btn-secondary font-bold border-2 border-line-2 hover:border-line-3 shrink-0 shadow-2xs gap-1.5"
+              className="btn btn-sm btn-secondary font-bold hover:border-line-3 shrink-0 shadow-2xs gap-1.5"
             >
               <span>Test in Simulator</span>
               <ExternalLink className="w-3.5 h-3.5 text-accent" />

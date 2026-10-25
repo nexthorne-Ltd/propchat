@@ -5,14 +5,10 @@ import { cn } from '@/lib/utils';
  * Six-way palette picked deterministically from the seed, so the same visitor
  * always gets the same colour across the list, the thread and the radar.
  */
-const PALETTE = [
-  { bg: '#2e5bff', fg: '#ffffff' },
-  { bg: '#0f9d76', fg: '#ffffff' },
-  { bg: '#7c5cff', fg: '#ffffff' },
-  { bg: '#d97706', fg: '#ffffff' },
-  { bg: '#e11d48', fg: '#ffffff' },
-  { bg: '#0891b2', fg: '#ffffff' },
-];
+const PALETTE = [1, 2, 3, 4, 5, 6].map((n) => ({
+  bg: `var(--ds-avatar-${n})`,
+  fg: 'var(--ds-avatar-ink)',
+}));
 
 function hash(seed: string) {
   let h = 0;

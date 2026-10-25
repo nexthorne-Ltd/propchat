@@ -1724,7 +1724,7 @@ export default function DashboardPage() {
             </Link>
             <button
               onClick={handleExitSuperAdminView}
-              className="px-3 py-1 rounded-lg bg-danger/80 hover:bg-danger text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+              className="px-3 py-1 rounded-lg bg-danger/80 hover:bg-danger text-ink-inv text-xs font-bold flex items-center gap-1.5 transition-colors"
             >
               <LogOut className="w-3 h-3" />
               <span>Exit Super Admin View</span>

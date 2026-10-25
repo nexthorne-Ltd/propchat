@@ -319,19 +319,22 @@ const ConversationItem = memo(function ConversationItem({
         }
       }}
       data-selected={isSelected}
+      aria-current={isSelected ? 'true' : undefined}
+      // Flat, per docs/DESIGN.md: selection is a tinted fill plus a bar inside
+      // the row, not a ring or shadow. Unread rows differ by type weight only,
+      // so the selected row is the one thing in the list that carries colour.
       className={cn(
-        'w-full text-left px-3 py-3 rounded-xl transition-all duration-150 flex items-start gap-3 relative border cursor-pointer group select-none outline-none focus-visible:ring-2 focus-visible:ring-accent/50 active:scale-[0.995]',
-        isSelected
-          ? 'bg-accent/[0.07] dark:bg-accent/15 border-accent/40 shadow-sm ring-1 ring-accent/20'
-          : hasUnread
-          ? 'bg-surface border-line-2 hover:bg-surface-2 shadow-xs'
-          : 'bg-surface border-line/70 hover:bg-surface-2/60 hover:border-line shadow-xs',
-        isChecked && 'ring-1 ring-accent/40 bg-accent/[0.05]'
+        'w-full text-left px-3 py-3 rounded-lg transition-colors duration-150 flex items-start gap-3 relative border cursor-pointer group select-none',
+        isSelected || isChecked
+          ? 'bg-accent-soft border-accent-line'
+          : 'bg-surface border-transparent hover:bg-surface-2 hover:border-line'
       )}
     >
-      {/* Active Left Indicator Bar */}
       {isSelected && (
-        <span className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full bg-accent" />
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-accent"
+        />
       )}
 
       {/* Bulk Checkbox: always shown in selection mode; on desktop it also
@@ -386,11 +389,7 @@ const ConversationItem = memo(function ConversationItem({
             <span
               className={cn(
                 'text-sm truncate leading-5',
-                hasUnread
-                  ? 'font-bold text-ink'
-                  : isSelected
-                  ? 'font-semibold text-accent'
-                  : 'font-semibold text-ink-2 group-hover:text-ink'
+                hasUnread ? 'font-semibold text-ink' : 'font-medium text-ink'
               )}
               title={name}
             >
@@ -463,7 +462,7 @@ const ConversationItem = memo(function ConversationItem({
             <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
               {sla?.isBreached ? (
                 <span
-                  className={cn(chip, 'bg-danger/10 text-danger border-danger/30')}
+                  className={cn(chip, 'bg-danger-soft text-danger border-danger-line')}
                   title={`SLA breached: customer waiting ${sla.waitLabel} without an agent reply`}
                 >
                   <Clock className="w-3 h-3" />
@@ -471,7 +470,7 @@ const ConversationItem = memo(function ConversationItem({
                 </span>
               ) : sla?.isWarning ? (
                 <span
-                  className={cn(chip, 'bg-warn/10 text-warn border-warn/30')}
+                  className={cn(chip, 'bg-warn-soft text-warn border-warn-line')}
                   title={`Approaching SLA limit: customer waiting ${sla.waitLabel}`}
                 >
                   <Clock className="w-3 h-3" />
@@ -480,27 +479,27 @@ const ConversationItem = memo(function ConversationItem({
               ) : null}
 
               {isUrgent ? (
-                <span className={cn(chip, 'bg-danger/10 text-danger border-danger/25')}>Urgent</span>
+                <span className={cn(chip, 'bg-danger-soft text-danger border-danger-line')}>Urgent</span>
               ) : isHigh ? (
-                <span className={cn(chip, 'bg-warn/10 text-warn border-warn/25')}>High</span>
+                <span className={cn(chip, 'bg-warn-soft text-warn border-warn-line')}>High</span>
               ) : null}
 
               {isWaiting && !isResolved && (
-                <span className={cn(chip, 'bg-warn/10 text-warn border-warn/25')}>
+                <span className={cn(chip, 'bg-warn-soft text-warn border-warn-line')}>
                   <span className="w-1.5 h-1.5 rounded-full bg-warn animate-pulse" />
                   Waiting
                 </span>
               )}
 
               {isBotGreeting && !isResolved && !isWaiting && (
-                <span className={cn(chip, 'bg-accent/10 text-accent border-accent/25 font-medium')}>
+                <span className={cn(chip, 'bg-accent-soft text-accent border-accent-line font-medium')}>
                   <Bot className="w-3 h-3" />
                   Bot greeting
                 </span>
               )}
 
               {isResolved && (
-                <span className={cn(chip, 'bg-success/10 text-success border-success/25')}>
+                <span className={cn(chip, 'bg-success-soft text-success border-success-line')}>
                   <Check className="w-3 h-3 stroke-[2.5]" />
                   Resolved
                 </span>
@@ -509,7 +508,7 @@ const ConversationItem = memo(function ConversationItem({
               {showLang && (
                 <span
                   title={`Visitor language: ${langCode!.toUpperCase()}`}
-                  className={cn(chip, 'bg-accent/10 text-accent border-accent/25 uppercase')}
+                  className={cn(chip, 'bg-accent-soft text-accent border-accent-line uppercase')}
                 >
                   <Globe className="w-3 h-3" />
                   {langCode}
@@ -520,14 +519,14 @@ const ConversationItem = memo(function ConversationItem({
                 <span
                   key={t}
                   title={t}
-                  className={cn(chip, 'bg-accent/10 text-accent border-accent/20 font-medium max-w-[120px]')}
+                  className={cn(chip, 'bg-surface-3 text-ink-2 border-line font-medium max-w-[120px]')}
                 >
                   <span className="truncate">{t}</span>
                 </span>
               ))}
 
               {conv.csat_rating && (
-                <span className={cn(chip, 'bg-warn/10 text-warn border-warn/25')}>
+                <span className={cn(chip, 'bg-warn-soft text-warn border-warn-line')}>
                   <Star className="w-3 h-3 fill-current" />
                   {conv.csat_rating}
                 </span>

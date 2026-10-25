@@ -371,7 +371,7 @@ export function LiveVisitorsRadar({
                                 e.stopPropagation();
                                 onOpenTicket?.(openTickets[0].id);
                               }}
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs font-semibold bg-warn-soft text-warn border border-warn-line hover:bg-warn-line transition-colors"
                               title={`Open Ticket #${openTickets[0].number}: ${openTickets[0].subject}`}
                             >
                               <TicketIcon className="w-2.5 h-2.5" />
@@ -530,7 +530,7 @@ export function LiveVisitorsRadar({
                         <button
                           type="button"
                           onClick={() => onOpenTicket?.(openTickets[0].id)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-2xs font-semibold bg-warn-soft text-warn border border-warn-line hover:bg-warn-line transition-colors"
                           title={`Ticket #${openTickets[0].number}: ${openTickets[0].subject}`}
                         >
                           <TicketIcon className="w-2.5 h-2.5" />

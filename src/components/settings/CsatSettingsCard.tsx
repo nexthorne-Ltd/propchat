@@ -212,11 +212,11 @@ export function CsatSettingsCard({ workspace, onWorkspaceUpdated }: CsatSettings
                 onClick={() => setPreviewRating('good')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-xs font-semibold transition-all ${
                   previewRating === 'good'
-                    ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 shadow-sm'
-                    : 'border-line bg-surface text-ink hover:border-emerald-500/50 hover:bg-surface/80'
+                    ? 'border-success bg-success-soft text-success shadow-sm'
+                    : 'border-line bg-surface text-ink hover:border-success hover:bg-surface/80'
                 }`}
               >
-                <ThumbsUp className="w-4 h-4 text-emerald-500" />
+                <ThumbsUp className="w-4 h-4 text-success" />
                 <span>Good, I&apos;m satisfied</span>
               </button>
 
@@ -225,11 +225,11 @@ export function CsatSettingsCard({ workspace, onWorkspaceUpdated }: CsatSettings
                 onClick={() => setPreviewRating('bad')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-xs font-semibold transition-all ${
                   previewRating === 'bad'
-                    ? 'border-rose-500 bg-rose-500/15 text-rose-400 shadow-sm'
-                    : 'border-line bg-surface text-ink hover:border-rose-500/50 hover:bg-surface/80'
+                    ? 'border-danger bg-danger-soft text-danger shadow-sm'
+                    : 'border-line bg-surface text-ink hover:border-danger hover:bg-surface/80'
                 }`}
               >
-                <ThumbsDown className="w-4 h-4 text-rose-500" />
+                <ThumbsDown className="w-4 h-4 text-danger" />
                 <span>Bad, I&apos;m unsatisfied</span>
               </button>
             </div>

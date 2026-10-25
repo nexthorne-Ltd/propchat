@@ -879,10 +879,10 @@ function Requester({ detail, onOpenTicket }: { detail: Detail; onOpenTicket: (id
             <span
               className={cn(
                 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-2xs font-medium',
-                online ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-surface-2 text-ink-3'
+                online ? 'bg-success-soft text-success' : 'bg-surface-2 text-ink-3'
               )}
             >
-              <span className={cn('w-1.5 h-1.5 rounded-full', online ? 'bg-emerald-500 animate-pulse' : 'bg-ink-4')} />
+              <span className={cn('w-1.5 h-1.5 rounded-full', online ? 'bg-success animate-pulse' : 'bg-ink-4')} />
               {online ? 'Online now' : 'Offline'}
             </span>
           )}
@@ -926,7 +926,7 @@ function Requester({ detail, onOpenTicket }: { detail: Detail; onOpenTicket: (id
         <section className="p-4 border-b border-line">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-2xs font-bold uppercase tracking-wide text-ink-3">Current Page</h3>
-            {online && <span className="text-2xs text-emerald-600 dark:text-emerald-400 font-medium">Active</span>}
+            {online && <span className="text-2xs text-success font-medium">Active</span>}
           </div>
           {currentPage ? (
             <div className="space-y-2">

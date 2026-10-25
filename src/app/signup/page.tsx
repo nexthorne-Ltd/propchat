@@ -610,7 +610,7 @@ function SignupForm() {
                 <div
                   className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${
                     ruleLength
-                      ? 'bg-success text-white'
+                      ? 'bg-success text-ink-inv'
                       : 'border border-line-2 bg-surface'
                   }`}
                 >
@@ -627,7 +627,7 @@ function SignupForm() {
                 <div
                   className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${
                     ruleCase
-                      ? 'bg-success text-white'
+                      ? 'bg-success text-ink-inv'
                       : 'border border-line-2 bg-surface'
                   }`}
                 >
@@ -644,7 +644,7 @@ function SignupForm() {
                 <div
                   className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${
                     ruleNumberOrSpecial
-                      ? 'bg-success text-white'
+                      ? 'bg-success text-ink-inv'
                       : 'border border-line-2 bg-surface'
                   }`}
                 >

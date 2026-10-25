@@ -53,6 +53,11 @@ const TEXT_PAIRS: [string, string][] = [
   ['ds-info', 'ds-info-soft'],
   ['ds-invert-ink', 'ds-invert'],
   ['ds-invert-ink-2', 'ds-invert'],
+  // Solid status fills (count badges, confirm buttons) carry ink-inv, which
+  // flips with the theme because the status colours lighten in dark mode.
+  ['ds-ink-inv', 'ds-success'],
+  ['ds-ink-inv', 'ds-warn'],
+  ['ds-ink-inv', 'ds-danger'],
 ];
 
 describe.each([

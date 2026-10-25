@@ -173,12 +173,12 @@ export function ReportsDashboard({
 
   // Tab definitions
   const tabs = [
-    { id: 'overview' as const, label: 'Overview & Volume' },
-    { id: 'sla_times' as const, label: 'Response Times & SLAs' },
+    { id: 'overview' as const, label: 'Overview & volume' },
+    { id: 'sla_times' as const, label: 'Response times & SLAs' },
     { id: 'csat' as const, label: 'Satisfaction (CSAT)' },
-    { id: 'breakdowns' as const, label: 'Breakdowns & Heatmap' },
-    { id: 'bot' as const, label: 'AI Bot Performance' },
-    { id: 'leaderboard' as const, label: 'Agent Leaderboard' },
+    { id: 'breakdowns' as const, label: 'Breakdowns & heatmap' },
+    { id: 'bot' as const, label: 'AI bot performance' },
+    { id: 'leaderboard' as const, label: 'Agent leaderboard' },
   ];
 
   // Filtered leaderboard
@@ -210,7 +210,7 @@ export function ReportsDashboard({
         <div>
           <h1 className="text-lg font-semibold text-ink flex items-center gap-2">
             <BarChart2 className="w-5 h-5 text-accent" />
-            Reports & Analytics
+            Reports & analytics
           </h1>
           <p className="text-xs text-ink-3 mt-0.5">
             Event-driven performance insights across volume, response speed, SLAs, and customer satisfaction.
@@ -255,42 +255,42 @@ export function ReportsDashboard({
                   className="w-full text-left px-2.5 py-1.5 text-xs text-ink hover:bg-surface-3 rounded-md transition-colors"
                   onClick={() => downloadCsv(exportSummaryOverviewCsv(data.summary), `${workspace.name}_overview`)}
                 >
-                  Summary KPIs Overview
+                  Summary KPIs
                 </button>
                 <button
                   type="button"
                   className="w-full text-left px-2.5 py-1.5 text-xs text-ink hover:bg-surface-3 rounded-md transition-colors"
                   onClick={() => downloadCsv(exportCreatedVsSolvedCsv(data.createdVsSolved), `${workspace.name}_created_vs_solved`)}
                 >
-                  Tickets Created vs Solved
+                  Tickets created vs solved
                 </button>
                 <button
                   type="button"
                   className="w-full text-left px-2.5 py-1.5 text-xs text-ink hover:bg-surface-3 rounded-md transition-colors"
                   onClick={() => downloadCsv(exportBacklogCsv(data.backlogOverTime), `${workspace.name}_backlog`)}
                 >
-                  Backlog Over Time
+                  Backlog over time
                 </button>
                 <button
                   type="button"
                   className="w-full text-left px-2.5 py-1.5 text-xs text-ink hover:bg-surface-3 rounded-md transition-colors"
                   onClick={() => downloadCsv(exportBreakdownsCsv(data.channelBreakdown, data.priorityBreakdown, data.tagBreakdown), `${workspace.name}_breakdowns`)}
                 >
-                  Category Breakdowns
+                  Category breakdowns
                 </button>
                 <button
                   type="button"
                   className="w-full text-left px-2.5 py-1.5 text-xs text-ink hover:bg-surface-3 rounded-md transition-colors"
                   onClick={() => downloadCsv(exportHeatmapCsv(data.heatmap), `${workspace.name}_busiest_hours`)}
                 >
-                  Busiest Hours Heatmap
+                  Busiest hours
                 </button>
                 <button
                   type="button"
                   className="w-full text-left px-2.5 py-1.5 text-xs text-ink hover:bg-surface-3 rounded-md transition-colors"
                   onClick={() => downloadCsv(exportAgentLeaderboardCsv(data.leaderboard), `${workspace.name}_agent_leaderboard`)}
                 >
-                  Agent Leaderboard
+                  Agent leaderboard
                 </button>
               </div>
             )}
@@ -346,7 +346,7 @@ export function ReportsDashboard({
           aria-label="Filter by group"
           className="h-8 px-2.5 rounded-md border border-line bg-surface text-xs text-ink focus:outline-none focus:border-accent"
         >
-          <option value="">All Groups</option>
+          <option value="">All groups</option>
           {data?.meta?.groups?.map((g) => (
             <option key={g.id} value={g.id}>
               {g.name}
@@ -361,7 +361,7 @@ export function ReportsDashboard({
           aria-label="Filter by agent"
           className="h-8 px-2.5 rounded-md border border-line bg-surface text-xs text-ink focus:outline-none focus:border-accent"
         >
-          <option value="">All Agents</option>
+          <option value="">All agents</option>
           {data?.meta?.agents?.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name}
@@ -376,10 +376,10 @@ export function ReportsDashboard({
           aria-label="Filter by channel"
           className="h-8 px-2.5 rounded-md border border-line bg-surface text-xs text-ink focus:outline-none focus:border-accent"
         >
-          <option value="">All Channels</option>
+          <option value="">All channels</option>
           <option value="chat">Chat</option>
           <option value="email">Email</option>
-          <option value="web_form">Web Form</option>
+          <option value="web_form">Web form</option>
           <option value="whatsapp">WhatsApp</option>
           <option value="instagram">Instagram</option>
           <option value="x">X</option>
@@ -435,9 +435,9 @@ export function ReportsDashboard({
             {/* Top Summary KPI Cards (Row of 6) */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {/* 1. Created vs Solved */}
-              <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs">
+              <div className="card p-3.5">
                 <span className="text-2xs font-semibold uppercase tracking-wider text-ink-3">
-                  Created vs Solved
+                  Created vs solved
                 </span>
                 <div className="mt-1 flex items-baseline gap-1.5">
                   <span className="text-xl font-bold text-ink tabular-nums">{summary?.totalCreated ?? 0}</span>
@@ -450,9 +450,9 @@ export function ReportsDashboard({
               </div>
 
               {/* 2. Backlog */}
-              <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs">
+              <div className="card p-3.5">
                 <span className="text-2xs font-semibold uppercase tracking-wider text-ink-3">
-                  Active Backlog
+                  Active backlog
                 </span>
                 <div className="mt-1 text-xl font-bold text-ink tabular-nums">
                   {summary?.finalBacklog ?? 0}
@@ -469,10 +469,10 @@ export function ReportsDashboard({
                 </div>
               </div>
 
-              {/* 3. First Reply Time */}
-              <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs">
+              {/* 3. First reply time */}
+              <div className="card p-3.5">
                 <span className="text-2xs font-semibold uppercase tracking-wider text-ink-3">
-                  First Reply Time
+                  First reply time
                 </span>
                 <div className="mt-1 text-xl font-bold text-ink tabular-nums">
                   {formatDuration(summary?.medianFrtSeconds)}
@@ -482,10 +482,10 @@ export function ReportsDashboard({
                 </div>
               </div>
 
-              {/* 4. Resolution Time */}
-              <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs">
+              {/* 4. Resolution time */}
+              <div className="card p-3.5">
                 <span className="text-2xs font-semibold uppercase tracking-wider text-ink-3">
-                  Resolution Time
+                  Resolution time
                 </span>
                 <div className="mt-1 text-xl font-bold text-ink tabular-nums">
                   {formatDuration(summary?.medianResolutionSeconds)}
@@ -496,9 +496,9 @@ export function ReportsDashboard({
               </div>
 
               {/* 5. SLA Achievement */}
-              <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs">
+              <div className="card p-3.5">
                 <span className="text-2xs font-semibold uppercase tracking-wider text-ink-3">
-                  SLA Achievement
+                  SLA achievement
                 </span>
                 <div className="mt-1 text-xl font-bold text-ink tabular-nums">
                   {summary?.overallSlaPercent !== null ? `${summary?.overallSlaPercent}%` : '—'}
@@ -509,9 +509,9 @@ export function ReportsDashboard({
               </div>
 
               {/* 6. CSAT Score */}
-              <div className="rounded-xl border border-line bg-surface p-3.5 shadow-xs">
+              <div className="card p-3.5">
                 <span className="text-2xs font-semibold uppercase tracking-wider text-ink-3">
-                  CSAT Positive %
+                  CSAT positive %
                 </span>
                 <div className="mt-1 text-xl font-bold text-ink tabular-nums flex items-center gap-1.5">
                   <ThumbsUp className="w-4 h-4 text-success" />
@@ -538,10 +538,10 @@ export function ReportsDashboard({
             {activeTab === 'overview' && data && (
               <div className="space-y-6">
                 {/* Created vs Solved Chart */}
-                <div className="rounded-xl border border-line bg-surface p-5 shadow-xs">
+                <div className="card p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h2 className="text-sm font-semibold text-ink">Tickets Created vs Solved</h2>
+                      <h2 className="text-sm font-semibold text-ink">Tickets created vs solved</h2>
                       <p className="text-xs text-ink-3">Daily comparison of incoming vs resolved ticket volume.</p>
                     </div>
                     <Button
@@ -572,11 +572,11 @@ export function ReportsDashboard({
                   </div>
                 </div>
 
-                {/* Backlog Over Time Chart */}
-                <div className="rounded-xl border border-line bg-surface p-5 shadow-xs">
+                {/* Backlog over time Chart */}
+                <div className="card p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h2 className="text-sm font-semibold text-ink">Backlog Over Time</h2>
+                      <h2 className="text-sm font-semibold text-ink">Backlog over time</h2>
                       <p className="text-xs text-ink-3">Unresolved ticket volume progression across the selected period.</p>
                     </div>
                     <Button
@@ -605,7 +605,7 @@ export function ReportsDashboard({
                           contentStyle={{ backgroundColor: 'var(--ds-surface)', borderColor: 'var(--ds-line)', borderRadius: '8px', fontSize: '12px' }}
                           labelStyle={{ color: 'var(--ds-ink)', fontWeight: 600 }}
                         />
-                        <Area type="monotone" dataKey="backlog" name="Active Backlog" stroke="var(--ds-accent)" fillOpacity={1} fill="url(#backlogGrad)" strokeWidth={2} />
+                        <Area type="monotone" dataKey="backlog" name="Active backlog" stroke="var(--ds-accent)" fillOpacity={1} fill="url(#backlogGrad)" strokeWidth={2} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -617,12 +617,12 @@ export function ReportsDashboard({
             {activeTab === 'sla_times' && data && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* First Reply Time Card */}
-                  <div className="rounded-xl border border-line bg-surface p-5 shadow-xs space-y-4">
+                  {/* First reply time Card */}
+                  <div className="card p-5 space-y-4">
                     <div className="flex items-center justify-between">
                       <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
                         <Clock className="w-4 h-4 text-accent" />
-                        First Reply Time (FRT)
+                        First reply time (FRT)
                       </h2>
                       <span className="text-2xs text-ink-3 uppercase font-semibold">Speed to First Contact</span>
                     </div>
@@ -645,26 +645,26 @@ export function ReportsDashboard({
                     </div>
                   </div>
 
-                  {/* Resolution Time Card */}
-                  <div className="rounded-xl border border-line bg-surface p-5 shadow-xs space-y-4">
+                  {/* Resolution time Card */}
+                  <div className="card p-5 space-y-4">
                     <div className="flex items-center justify-between">
                       <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-success" />
-                        Resolution Time
+                        Resolution time
                       </h2>
-                      <span className="text-2xs text-ink-3 uppercase font-semibold">Full Cycle Duration</span>
+                      <span className="text-2xs text-ink-3 uppercase font-semibold">Full cycle</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 pt-2">
                       <div className="p-4 rounded-lg bg-surface-2 border border-line/60">
-                        <span className="text-2xs text-ink-3 uppercase font-semibold">Median Resolution</span>
+                        <span className="text-2xs text-ink-3 uppercase font-semibold">Median resolution</span>
                         <div className="text-2xl font-bold text-ink mt-1 tabular-nums">
                           {formatDuration(summary?.medianResolutionSeconds)}
                         </div>
                         <span className="text-2xs text-ink-3">50% solved faster</span>
                       </div>
                       <div className="p-4 rounded-lg bg-surface-2 border border-line/60">
-                        <span className="text-2xs text-ink-3 uppercase font-semibold">Average Resolution</span>
+                        <span className="text-2xs text-ink-3 uppercase font-semibold">Average resolution</span>
                         <div className="text-2xl font-bold text-ink mt-1 tabular-nums">
                           {formatDuration(summary?.avgResolutionSeconds)}
                         </div>
@@ -675,7 +675,7 @@ export function ReportsDashboard({
                 </div>
 
                 {/* SLA Achievement Breakdown Card */}
-                <div className="rounded-xl border border-line bg-surface p-5 shadow-xs">
+                <div className="card p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
@@ -750,7 +750,7 @@ export function ReportsDashboard({
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* CSAT Score Card */}
-                  <div className="rounded-xl border border-line bg-surface p-5 shadow-xs space-y-2">
+                  <div className="card p-5 space-y-2">
                     <span className="text-2xs font-semibold uppercase tracking-wider text-ink-3">
                       Satisfaction Score (CSAT)
                     </span>
@@ -764,9 +764,9 @@ export function ReportsDashboard({
                   </div>
 
                   {/* Ratings Count */}
-                  <div className="rounded-xl border border-line bg-surface p-5 shadow-xs space-y-2">
+                  <div className="card p-5 space-y-2">
                     <span className="text-2xs font-semibold uppercase tracking-wider text-ink-3">
-                      Ratings Volume
+                      Ratings
                     </span>
                     <div className="text-3xl font-bold text-ink tabular-nums">
                       {summary?.totalCsatRatings ?? 0}
@@ -783,9 +783,9 @@ export function ReportsDashboard({
                   </div>
 
                   {/* Response Rate */}
-                  <div className="rounded-xl border border-line bg-surface p-5 shadow-xs space-y-2">
+                  <div className="card p-5 space-y-2">
                     <span className="text-2xs font-semibold uppercase tracking-wider text-ink-3">
-                      Survey Response Rate
+                      Survey response rate
                     </span>
                     <div className="text-3xl font-bold text-ink tabular-nums">
                       {summary?.csatResponseRatePercent !== null ? `${summary?.csatResponseRatePercent}%` : '—'}
@@ -797,10 +797,10 @@ export function ReportsDashboard({
                 </div>
 
                 {/* Customer Comments & Feedback */}
-                <div className="rounded-xl border border-line bg-surface p-5 shadow-xs">
+                <div className="card p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h2 className="text-sm font-semibold text-ink">Recent Customer Feedback</h2>
+                      <h2 className="text-sm font-semibold text-ink">Recent customer feedback</h2>
                       <p className="text-xs text-ink-3">Comments and ratings submitted by requesters.</p>
                     </div>
                   </div>
@@ -832,7 +832,7 @@ export function ReportsDashboard({
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-xs font-semibold text-ink">
-                                {fb.rating === 'good' ? 'Good Experience' : 'Needs Improvement'}
+                                {fb.rating === 'good' ? 'Good' : 'Bad'}
                               </span>
                               <span className="text-2xs text-ink-3">
                                 {new Date(fb.occurredAt).toLocaleDateString()}
@@ -857,7 +857,7 @@ export function ReportsDashboard({
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Channels Breakdown */}
-                  <div className="rounded-xl border border-line bg-surface p-5 shadow-xs">
+                  <div className="card p-5">
                     <h2 className="text-sm font-semibold text-ink mb-1">Tickets by Channel</h2>
                     <p className="text-2xs text-ink-3 mb-3">Volume distribution across contact channels.</p>
                     <div className="space-y-2">
@@ -878,7 +878,7 @@ export function ReportsDashboard({
                   </div>
 
                   {/* Priority Breakdown */}
-                  <div className="rounded-xl border border-line bg-surface p-5 shadow-xs">
+                  <div className="card p-5">
                     <h2 className="text-sm font-semibold text-ink mb-1">Tickets by Priority</h2>
                     <p className="text-2xs text-ink-3 mb-3">Urgency classification breakdown.</p>
                     <div className="space-y-2">
@@ -908,8 +908,8 @@ export function ReportsDashboard({
                   </div>
 
                   {/* Tag Breakdown */}
-                  <div className="rounded-xl border border-line bg-surface p-5 shadow-xs">
-                    <h2 className="text-sm font-semibold text-ink mb-1">Top Tags</h2>
+                  <div className="card p-5">
+                    <h2 className="text-sm font-semibold text-ink mb-1">Top tags</h2>
                     <p className="text-2xs text-ink-3 mb-3">Most common tags on created tickets.</p>
                     {data.tagBreakdown.length === 0 ? (
                       <p className="text-2xs text-ink-3 py-6 text-center">No tags used on tickets in this period.</p>
@@ -933,13 +933,13 @@ export function ReportsDashboard({
                   </div>
                 </div>
 
-                {/* Busiest Hours Heatmap */}
-                <div className="rounded-xl border border-line bg-surface p-5 shadow-xs space-y-4">
+                {/* Busiest hours */}
+                <div className="card p-5 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                       <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
                         <Flame className="w-4 h-4 text-warn" />
-                        Busiest Hours Heatmap
+                        Busiest hours
                       </h2>
                       <p className="text-xs text-ink-3">Ticket creation density across all hours of the week (UTC).</p>
                     </div>
@@ -1006,7 +1006,7 @@ export function ReportsDashboard({
 
               return (
                 <div className="space-y-6">
-                  <div className="rounded-xl border border-line bg-surface p-5 shadow-xs space-y-4">
+                  <div className="card p-5 space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
@@ -1015,12 +1015,12 @@ export function ReportsDashboard({
                         </h2>
                         <p className="text-xs text-ink-3">Autopilot ticket deflection and agent hand-over tracking.</p>
                       </div>
-                      <span className="text-2xs text-ink-3 font-mono font-semibold uppercase">Bot Deflection</span>
+                      <span className="text-2xs text-ink-3 font-mono font-semibold uppercase">Bot deflection</span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
                       <div className="p-4 rounded-xl bg-surface-2 border border-line/60">
-                        <span className="text-2xs uppercase tracking-wider font-semibold text-ink-3">Bot Resolution Rate</span>
+                        <span className="text-2xs uppercase tracking-wider font-semibold text-ink-3">Bot resolution rate</span>
                         <div className="text-3xl font-bold text-success mt-1 tabular-nums">
                           {summary?.botResolutionRatePercent !== null ? `${summary?.botResolutionRatePercent}%` : '—'}
                         </div>
@@ -1028,7 +1028,7 @@ export function ReportsDashboard({
                       </div>
 
                       <div className="p-4 rounded-xl bg-surface-2 border border-line/60">
-                        <span className="text-2xs uppercase tracking-wider font-semibold text-ink-3">Handover Rate</span>
+                        <span className="text-2xs uppercase tracking-wider font-semibold text-ink-3">Handover rate</span>
                         <div className="text-3xl font-bold text-warn mt-1 tabular-nums">
                           {handoverRatePercent}%
                         </div>
@@ -1073,13 +1073,13 @@ export function ReportsDashboard({
                     )}
                   </div>
 
-                  {/* Top Unanswered Questions */}
-                  <div className="rounded-xl border border-line bg-surface p-5 shadow-xs space-y-4">
+                  {/* Top unanswered questions */}
+                  <div className="card p-5 space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
                           <HelpCircle className="w-4 h-4 text-accent" />
-                          Top Unanswered Questions
+                          Top unanswered questions
                         </h2>
                         <p className="text-xs text-ink-3">
                           Frequent customer inquiries the AI bot could not answer from your knowledge base.
@@ -1109,8 +1109,8 @@ export function ReportsDashboard({
                           <thead>
                             <tr className="border-b border-line text-2xs uppercase tracking-wider text-ink-muted font-semibold">
                               <th className="py-2.5 px-3">Question</th>
-                              <th className="py-2.5 px-3 text-center">Times Asked</th>
-                              <th className="py-2.5 px-3">Last Asked</th>
+                              <th className="py-2.5 px-3 text-center">Times asked</th>
+                              <th className="py-2.5 px-3">Last asked</th>
                               <th className="py-2.5 px-3 text-right">Action</th>
                             </tr>
                           </thead>
@@ -1121,7 +1121,7 @@ export function ReportsDashboard({
                                   {q.question}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-accent/10 text-accent font-semibold text-2xs">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-accent-soft text-accent font-semibold text-2xs">
                                     {q.times_asked}x
                                   </span>
                                 </td>
@@ -1136,7 +1136,7 @@ export function ReportsDashboard({
                                     href={`/dashboard/unanswered`}
                                     className="text-2xs font-semibold text-accent hover:underline inline-flex items-center gap-1"
                                   >
-                                    <span>Train Answer</span>
+                                    <span>Add an answer</span>
                                     <ArrowRight className="w-3 h-3" />
                                   </a>
                                 </td>
@@ -1153,12 +1153,12 @@ export function ReportsDashboard({
 
             {/* TAB 6: AGENT LEADERBOARD */}
             {activeTab === 'leaderboard' && data && (
-              <div className="rounded-xl border border-line bg-surface p-5 shadow-xs space-y-4">
+              <div className="card p-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
                       <Users className="w-4 h-4 text-accent" />
-                      Agent Performance Leaderboard
+                      Agent performance
                     </h2>
                     <p className="text-xs text-ink-3">Solved ticket throughput, response speeds, and customer satisfaction.</p>
                   </div>
@@ -1209,7 +1209,7 @@ export function ReportsDashboard({
                           className="py-2.5 px-3 cursor-pointer hover:text-ink text-right"
                           onClick={() => setLeaderboardSortBy('resolution')}
                         >
-                          Median Resolution {leaderboardSortBy === 'resolution' ? '↓' : ''}
+                          Median resolution {leaderboardSortBy === 'resolution' ? '↓' : ''}
                         </th>
                         <th
                           className="py-2.5 px-3 cursor-pointer hover:text-ink text-right"

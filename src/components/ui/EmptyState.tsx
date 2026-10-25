@@ -55,7 +55,7 @@ export function EmptyState({
         <div className="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent">
           <MessageSquare className="w-7 h-7" />
         </div>
-        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-success text-white flex items-center justify-center text-2xs font-bold border-2 border-surface">
+        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-success text-ink-inv flex items-center justify-center text-2xs font-bold border-2 border-surface">
           ✓
         </div>
       </div>

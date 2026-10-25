@@ -220,14 +220,14 @@ export function UnansweredQuestionsView({
             className={cn(
               'px-4 py-3 rounded-xl shadow-lg border flex items-center gap-2.5 text-xs font-medium',
               feedbackToast.tone === 'success'
-                ? 'bg-surface border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                : 'bg-surface border-amber-500/30 text-amber-600 dark:text-amber-400'
+                ? 'bg-surface border-success-line text-success'
+                : 'bg-surface border-warn-line text-warn'
             )}
           >
             {feedbackToast.tone === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
             ) : (
-              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-warn shrink-0" />
             )}
             <span>{feedbackToast.message}</span>
           </div>
@@ -239,7 +239,7 @@ export function UnansweredQuestionsView({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-6xl mx-auto">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center font-bold">
+              <div className="w-9 h-9 rounded-xl bg-warn-soft text-warn flex items-center justify-center font-bold">
                 <HelpCircle className="w-5 h-5" />
               </div>
               <div>
@@ -315,7 +315,7 @@ export function UnansweredQuestionsView({
         ) : filteredQuestions.length === 0 ? (
           <div className="py-20 text-center rounded-2xl border border-dashed border-line bg-surface/30 p-8 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-surface-2 flex items-center justify-center mx-auto text-ink-3">
-              <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+              <CheckCircle2 className="w-6 h-6 text-success" />
             </div>
             <h3 className="text-sm font-bold text-ink">No questions found</h3>
             <p className="text-xs text-ink-3 max-w-sm mx-auto">
@@ -340,7 +340,7 @@ export function UnansweredQuestionsView({
                         {item.question}
                       </span>
                       {item.times_asked > 1 ? (
-                        <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                        <span className="px-2 py-0.5 rounded-full text-2xs font-bold bg-warn-soft text-warn border border-warn-line">
                           🔥 Asked {item.times_asked} times
                         </span>
                       ) : (
@@ -351,9 +351,9 @@ export function UnansweredQuestionsView({
                       <span
                         className={cn(
                           'px-2 py-0.5 rounded-full text-2xs font-semibold uppercase tracking-wider',
-                          item.status === 'open' && 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
-                          item.status === 'pending_approval' && 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20',
-                          item.status === 'answered' && 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20',
+                          item.status === 'open' && 'bg-warn-soft text-warn border border-warn-line',
+                          item.status === 'pending_approval' && 'bg-accent-soft text-accent border border-accent-line',
+                          item.status === 'answered' && 'bg-success-soft text-success border border-success-line',
                           item.status === 'dismissed' && 'bg-surface-3 text-ink-3 border border-line'
                         )}
                       >
@@ -440,14 +440,14 @@ export function UnansweredQuestionsView({
 
                         <button
                           onClick={() => handleDismiss(item)}
-                          className="p-1.5 rounded-xl border border-line bg-surface hover:bg-surface-2 text-ink-3 hover:text-rose-500 transition-all cursor-pointer shadow-2xs"
+                          className="p-1.5 rounded-xl border border-line bg-surface hover:bg-surface-2 text-ink-3 hover:text-danger transition-all cursor-pointer shadow-2xs"
                           title="Dismiss question"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </>
                     ) : item.status === 'answered' ? (
-                      <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                      <div className="flex items-center gap-1.5 text-xs text-success font-medium">
                         <CheckCircle2 className="w-4 h-4" />
                         <span>Answered</span>
                       </div>

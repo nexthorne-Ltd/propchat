@@ -261,7 +261,7 @@ function CodeBlockWithCopy({ language, code }: { language: string; code: string 
   };
 
   return (
-    <div className="my-4 rounded-xl border border-line-3/80 bg-invert text-slate-100 overflow-hidden shadow-md">
+    <div className="my-4 rounded-xl border border-line-3/80 bg-invert text-invert-ink overflow-hidden shadow-md">
       <div className="px-4 py-2 bg-invert border-b border-line-3 flex items-center justify-between text-2xs text-ink-3 font-mono">
         <span>{language || 'code'}</span>
         <button
