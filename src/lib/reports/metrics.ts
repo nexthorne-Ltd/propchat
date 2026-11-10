@@ -5,6 +5,7 @@
  */
 
 import type { ReportingEvent, ReportingEventType } from '@/types/database';
+import { parseLocation } from '@/lib/visitor-meta';
 
 export interface SlaEventItem {
   id?: number | string;
@@ -48,6 +49,22 @@ export interface BreakdownItem {
   label: string;
   count: number;
   percentage: number;
+}
+
+export interface CountryTrafficItem {
+  /** ISO-3166 alpha-2 code when we could work one out, otherwise the stored name. */
+  key: string;
+  countryCode: string | null;
+  country: string;
+  visitors: number;
+  percentage: number;
+}
+
+export interface CountryTraffic {
+  totalVisitors: number;
+  /** Visitors whose location was blocked or never resolved. */
+  unknownVisitors: number;
+  countries: CountryTrafficItem[];
 }
 
 export interface HeatmapCell {
@@ -752,6 +769,63 @@ export function exportBreakdownsCsv(
   }
   for (const t of tags) {
     lines.push(`Tag,${escapeCsv(t.label)},${escapeCsv(t.count)},${escapeCsv(t.percentage)}%`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Visitors grouped by country. The widget stores either the IP lookup's
+ * country or, when that is blocked, only a timezone in `location`, so every
+ * row goes through parseLocation: "Pakistan", "PK" and Asia/Karachi all land
+ * in the same bucket instead of three. Percentages are of visitors whose
+ * country is known, so many blocked lookups don't shrink every bar.
+ */
+export function calculateCountryTraffic(
+  visitors: Array<{
+    location?: string | null;
+    ip_location_city?: string | null;
+    ip_location_country?: string | null;
+  }>,
+): CountryTraffic {
+  const buckets = new Map<string, CountryTrafficItem>();
+  let unknown = 0;
+
+  for (const v of visitors) {
+    const place = parseLocation(v.location, v.ip_location_city, v.ip_location_country);
+    if (!place.country && !place.countryCode) {
+      unknown++;
+      continue;
+    }
+    const key = place.countryCode || (place.country as string).toLowerCase();
+    const existing = buckets.get(key);
+    if (existing) {
+      existing.visitors++;
+    } else {
+      buckets.set(key, {
+        key,
+        countryCode: place.countryCode,
+        country: place.country || (place.countryCode as string),
+        visitors: 1,
+        percentage: 0,
+      });
+    }
+  }
+
+  const known = visitors.length - unknown;
+  const countries = [...buckets.values()]
+    .map((c) => ({ ...c, percentage: known > 0 ? Math.round((c.visitors / known) * 100) : 0 }))
+    .sort((a, b) => b.visitors - a.visitors || a.country.localeCompare(b.country));
+
+  return { totalVisitors: visitors.length, unknownVisitors: unknown, countries };
+}
+
+export function exportCountryTrafficCsv(traffic: CountryTraffic): string {
+  const lines = ['Country,Country Code,Visitors,Percentage of Known'];
+  for (const c of traffic.countries) {
+    lines.push(`${escapeCsv(c.country)},${escapeCsv(c.countryCode ?? '')},${escapeCsv(c.visitors)},${escapeCsv(c.percentage)}%`);
+  }
+  if (traffic.unknownVisitors > 0) {
+    lines.push(`Unknown,,${escapeCsv(traffic.unknownVisitors)},`);
   }
   return lines.join('\n');
 }

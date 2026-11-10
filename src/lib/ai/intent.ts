@@ -177,9 +177,15 @@ const AFFIRMATIVE =
 export const HANDOFF_OFFER =
   /connect you with (?:a|our) (?:team member|support team)|team member se connect kar doon|support team ke member se connect|ٹیم کے ممبر سے منسلک کر دوں|سپورٹ ٹیم کے ممبر سے منسلک|أصلك بأحد أعضاء فريق الدعم|comunique con (?:un miembro de )?nuestro equipo|mette en contact avec (?:un membre de )?notre équipe|सहायता टीम के किसी सदस्य से जोड़ दूँ/i;
 
-/** Asking for a person in Roman Urdu or mixed English, which `wantsHuman` does not know. */
+/**
+ * Asking for a person in Roman Urdu or mixed English, which `wantsHuman` does not know.
+ * "baat karni hai" alone is not one: "payout ke bare mein baat karni hai" is
+ * a payout question, and treating it as a request for a person turned the bot
+ * off before it answered. It needs "kisi se" (with someone); only "baat
+ * karwa do" (arrange a talk) implies a person by itself.
+ */
 const HUMAN_REQUEST_ROMAN_UR =
-  /\b(?:(?:kisi\s+)?(?:insaan|insan|banday|bande|banda|agent|representative|staff|admin|support(?:\s+team)?|team(?:\s+member)?|manager)\s+(?:se|say|sy)\s+(?:baat|rabta|contact|connect)|(?:insaan|insan|human|agent|representative|real\s+person|team\s+member)\s+(?:chahiye|chahye|chaiye|se\s+milna)|(?:kisi\s+se\s+)?baat\s+(?:karwa|karwao|karao|krwa|kara|karni|krni|kar\s+sakta|kr\s+sakta)\w*|(?:human|agent|person|team\s+member)\s+(?:se\s+)?connect\s+(?:karo|kar\s+do|krdo|kardo|karwao|krwao|krwa\s+do|karwa\s+do)|handover\s+(?:kar\s+do|krdo|kardo|karo|krwao|karwao))\b/i;
+  /\b(?:(?:kisi\s+)?(?:insaan|insan|banday|bande|banda|agent|representative|staff|admin|support(?:\s+team)?|team(?:\s+member)?|manager)\s+(?:se|say|sy)\s+(?:baat|rabta|contact|connect)|(?:insaan|insan|human|agent|representative|real\s+person|team\s+member)\s+(?:chahiye|chahye|chaiye|se\s+milna)|kisi\s+se\s+baat\s+(?:karwa|karwao|karao|krwa|kara|karni|krni|kar\s+sakta|kr\s+sakta)\w*|baat\s+(?:karwa|karwao|karao|krwa|krwao)\w*|(?:human|agent|person|team\s+member)\s+(?:se\s+)?connect\s+(?:karo|kar\s+do|krdo|kardo|karwao|krwao|krwa\s+do|karwa\s+do)|handover\s+(?:kar\s+do|krdo|kardo|karo|krwao|karwao))\b/i;
 
 export function asksForHuman(message: string): boolean {
   return wantsHuman(message) || HUMAN_REQUEST_ROMAN_UR.test(message);
@@ -671,13 +677,13 @@ export function wantsHumanReply(lang: ReplyLanguage, alreadyWithHuman: boolean):
   }
   const notice = getExpectedReplyTimeNotice(lang);
   return localized(lang, {
-    en: `I've passed this conversation to our support team. ${notice}`,
-    roman_ur: `Maine aapki conversation hamari support team ko de di hai. ${notice}`,
-    ur: `میں نے آپ کی گفتگو ہماری سپورٹ ٹیم کو منتقل کر دی ہے۔ ${notice}`,
-    hi: `मैंने आपकी बातचीत हमारी सहायता टीम को सौंप दी है। ${notice}`,
-    ar: `لقد حوّلت محادثتك إلى فريق الدعم. ${notice}`,
-    es: `He pasado tu conversación a nuestro equipo de soporte. ${notice}`,
-    fr: `J'ai transmis votre conversation à notre équipe d'assistance. ${notice}`,
+    en: `I've passed this conversation to our support team. ${notice} Meanwhile, tell me your question here and I'll help right away.`,
+    roman_ur: `Maine aapki conversation hamari support team ko de di hai. ${notice} Tab tak apna sawal yahan likhein, main abhi madad karta hoon.`,
+    ur: `میں نے آپ کی گفتگو ہماری سپورٹ ٹیم کو منتقل کر دی ہے۔ ${notice} تب تک اپنا سوال یہاں لکھیں، میں ابھی مدد کرتا ہوں۔`,
+    hi: `मैंने आपकी बातचीत हमारी सहायता टीम को सौंप दी है। ${notice} तब तक अपना सवाल यहाँ लिखें, मैं अभी मदद करता हूँ।`,
+    ar: `لقد حوّلت محادثتك إلى فريق الدعم. ${notice} في الأثناء، اكتب سؤالك هنا وسأساعدك فوراً.`,
+    es: `He pasado tu conversación a nuestro equipo de soporte. ${notice} Mientras tanto, escribe tu pregunta aquí y te ayudo enseguida.`,
+    fr: `J'ai transmis votre conversation à notre équipe d'assistance. ${notice} En attendant, écrivez votre question ici et je vous aide tout de suite.`,
   });
 }
 

@@ -269,6 +269,7 @@ export const SUB_AGENTS: SubAgentDefinition[] = [
       'You handle KYC, verification and contracts. List exactly which documents are needed and when, from the HELP CENTER, and the usual review time.',
       'Country eligibility: answer only from the HELP CENTER; if a country is not mentioned, say so.',
       'A rejected or stuck verification needs the team: hand over and ask for account email.',
+      'A verification or sign-up email that did not arrive is not KYC: give the email steps (spam, promotions, the address used, resend) and hand over only if it still has not come after that.',
     ].join('\n'),
     articleMatch: /\b(kyc|verification|verify|identity|documents?|passport|contract|agreement|countries|country|restricted)\b/i,
     topic: [

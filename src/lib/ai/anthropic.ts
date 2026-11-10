@@ -1033,6 +1033,8 @@ async function answerAsSupportAgent(input: SupportAgentInput): Promise<HelpDeskR
   });
   // A figure from the trader's own record is not an invented one.
   const evidence = [knowledge.text, record?.text ?? '', ...input.conversationMessages.map((m) => m.content)].join('\n');
+  // Links the reply may carry: only the firm's own text, never the visitor's.
+  const linkSource = [knowledge.text, input.systemPrompt ?? ''].join('\n');
 
   // The route gives the whole reply 35 s, and the intent call may already
   // have used some: the first draft gets 18 s, a rewrite only what is left.
@@ -1076,7 +1078,7 @@ async function answerAsSupportAgent(input: SupportAgentInput): Promise<HelpDeskR
     return null;
   }
 
-  let parsed = parseAgentReply((reply.text || '').trim());
+  let parsed = parseAgentReply((reply.text || '').trim(), linkSource);
   // An amount or percentage that is not in the help centre or the chat is
   // the one thing a support agent must never make up. One rewrite, told
   // which figures; a second miss goes down the strict path.
@@ -1091,7 +1093,7 @@ async function answerAsSupportAgent(input: SupportAgentInput): Promise<HelpDeskR
         timeLeft
       );
       if (retry.ok && retry.text) {
-        parsed = parseAgentReply(retry.text.trim());
+        parsed = parseAgentReply(retry.text.trim(), linkSource);
         invented = parsed.text ? unsupportedFigures(parsed.text, evidence) : [];
       }
     } catch (err) {
@@ -1127,7 +1129,7 @@ async function answerAsSupportAgent(input: SupportAgentInput): Promise<HelpDeskR
             timeLeftForCheck
           );
           if (again.ok && again.text) {
-            const second = parseAgentReply(again.text.trim());
+            const second = parseAgentReply(again.text.trim(), linkSource);
             const secondInvented = second.text ? unsupportedFigures(second.text, evidence) : ['(empty)'];
             if (second.text && !secondInvented.length && !(second.sourceIndex && (await jevRejectsAgentReply(input, second.text, passagesFor(second))))) {
               parsed = second;
@@ -1138,7 +1140,16 @@ async function answerAsSupportAgent(input: SupportAgentInput): Promise<HelpDeskR
           console.warn('[Agent mode] Rewrite after the Jev check failed:', (err as Error)?.message);
         }
       }
-      if (!recovered) {
+      // Still refused. For a question about the firm's own rules, prices or
+      // links, the draft is sent anyway: every figure in it is already in the
+      // help centre (the check above), and Jev sees only up to 6,000
+      // characters of it, so a full rules list drawn from many articles is
+      // exactly what it cannot match. The strict path that took over instead
+      // handed "send me all the rules" to the team. A reply about the
+      // customer's own account still goes to the strict path.
+      if (!recovered && !input.accountSpecific) {
+        console.warn('[Agent mode] Jev refused twice; sending the draft, its figures are all in the help center.');
+      } else if (!recovered) {
         console.warn('[Agent mode] Jev: the reply is not supported by the help center, using the strict path.');
         return null;
       }
@@ -1159,12 +1170,13 @@ async function answerAsSupportAgent(input: SupportAgentInput): Promise<HelpDeskR
     citedArticles: citation ? [{ id: citation.id, title: citation.title }] : [],
     usedArticleIds: articleIds,
     retrievalConfidence: source ? 'high' : 'medium',
-    // After answering a specific topic, offer a follow-up chip so the visitor
-    // can either ask another common question or escalate — no typing needed.
+    // After answering a specific topic, offer a follow-up chip. There is no
+    // "Talk to a person" chip: offered under every answer it became the
+    // easiest thing to click, and the bot is meant to handle nearly every
+    // question. Typing a request for a person still reaches the team.
     quickReplies: !parsed.handover
       ? [
           { label: '❓ Another question', value: 'I have another question.' },
-          { label: '🧑‍💼 Talk to a person', value: 'I want to speak with a team member.' },
         ]
       : null,
   };
@@ -1449,8 +1461,15 @@ async function respondToVisitor({
     });
   }
 
+  // Rules 2 and 3 are for the strict path, which can only repeat itself. In
+  // agent mode a retry ("still not working", the same question again) is
+  // answered with the retry noted in the prompt (isRetry below): those words
+  // are usually about the trader's platform or a rule, not the bot, and the
+  // counter is never reset, so one early "doesn't work" handed every later
+  // retry, days on, to the team with the bot switched off. Being fed up with
+  // the bot itself is still caught by the anger rule above.
   // Never Frustrate Customer Rule 2: Hand over if bot has failed twice in one conversation
-  if (botFailureCount >= 2) {
+  if (!agentMode && botFailureCount >= 2) {
     return handover(formatHandoverCustomerMessage({ lang, businessHours }), {
       disableAi: true,
       priority: 'high',
@@ -1460,7 +1479,7 @@ async function respondToVisitor({
 
   // Never Frustrate Customer Rule 3: Rejection / Retry ("didn't help" or repeated question)
   const isRetry = isCustomerRetry(incomingMessage, conversationMessages);
-  if (isRetry) {
+  if (isRetry && !agentMode) {
     if (botFailureCount >= 1) {
       return handover(formatHandoverCustomerMessage({ lang, businessHours }), {
         disableAi: true,
@@ -1607,7 +1626,6 @@ async function respondToVisitor({
               { label: '💰 Pricing & Plans', value: 'What are the challenge prices and account sizes?' },
               { label: '📋 Trading Rules', value: 'What are the trading rules and drawdown limits?' },
               { label: '💸 Payouts', value: 'How and when can I request a payout?' },
-              { label: '🧑‍💼 Talk to a person', value: 'I want to speak with a team member.' },
             ]
           : null;
       return {
@@ -1680,7 +1698,6 @@ async function respondToVisitor({
               { label: '💰 Pricing & Plans', value: 'What are the challenge prices and account sizes?' },
               { label: '📋 Trading Rules', value: 'What are the trading rules and drawdown limits?' },
               { label: '💸 Payouts', value: 'How and when can I request a payout?' },
-              { label: '🧑‍💼 Talk to a person', value: 'I want to speak with a team member.' },
             ]
           : null;
       return {
@@ -1695,8 +1712,11 @@ async function respondToVisitor({
     }
 
     case 'wants_human':
-      // The bot steps aside until the conversation is resolved.
-      return handover(wantsHumanReply(lang, hasHumanReplied), { disableAi: true, priority: 'high' });
+      // The team is told, but the bot stays on: most visitors ask for a
+      // person first and then type the question the bot can answer, and with
+      // the bot off that question waited for an agent. A person's own reply
+      // still switches the bot off (bot control, in the database).
+      return handover(wantsHumanReply(lang, hasHumanReplied), { disableAi: false, priority: 'high' });
 
     case 'account_specific': {
       const baseReply = accountSpecificReply(lang, intent);

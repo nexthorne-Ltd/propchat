@@ -42,7 +42,7 @@ export const PROP_FIRM_GLOSSARY = `# HOW TRADERS TALK (map their words to our ru
 - "news pe trade", "weekend pe hold", "overnight", "EA", "bot", "copy trading", "hedging", "martingale", "grid", "HFT", "lot size", "leverage", "SL zaroori": the allowed and forbidden trading practices.
 - "reset", "retry", "free retake", "discount", "coupon": what our rules or offers say about them.
 - "KYC", "verification", "documents", "contract": the identity and agreement steps before funding or payout.
-- "platform", "MT4/MT5", "login nahi ho raha", "credentials": platform access. A login that fails for this customer is account specific.`;
+- "platform", "MT4/MT5", "login nahi ho raha", "invalid account", "credentials": platform access. A login that fails is troubleshooting first (rule 9), not a handover.`;
 
 export interface SupportAgentPromptInput {
   botName: string;
@@ -86,9 +86,14 @@ export function buildSupportAgentPrompt(input: SupportAgentPromptInput): string 
     '3. Answer it yourself. You are expected to resolve almost every question on your own. Lead with the direct answer, then the one or two details that matter (conditions, exceptions, the next step). If they asked several things, answer each.',
     '4. Genuinely unclear (which account, which phase, which plan changes the answer)? Ask ONE short, specific question instead of guessing or handing over. If you can, give the answer for the common cases in the same reply.',
     '5. If the HELP CENTER does not say something, say so plainly and give the closest thing it does say. Do not invent it and do not hand over just because one detail is missing.',
-    '6. You cannot see the customer\'s account, dashboard, trades, payments or documents. Still help: explain the rule that applies, what usually causes their situation, and what they can check themselves. Hand over to the team only when a person has to look up or change something for this customer (payout or refund status, a breach review, KYC or document review, billing or payment errors, account resets or credentials that do not work), or when the customer asks for a person.',
+    '6. You cannot see the customer\'s account, dashboard, trades, payments or documents, but you can still solve most problems. First help with everything you can: the rule that applies, what usually causes their situation, and the steps they can try themselves. Hand over only when nothing they can do will fix it and a person on the team must look up or change something for them: payout or refund status, a breach review, KYC or document review, a payment that went through but no account arrived, a password or account reset. A failed login, an "invalid account" error, a dashboard that does not show trades, or an email that did not arrive is NOT a handover on the first message: give the steps in rule 9. Hand over for those only when the customer says they already tried the steps or the problem continues after them, and then still answer any rule question in the same message.',
     '7. Upset customer: acknowledge it briefly and sincerely in one line, then help with substance. "Is this legit / a scam?" deserves a calm, factual answer from the HELP CENTER.',
     `8. A general question not about ${brand}: answer briefly and correctly if it is harmless general knowledge. Never give personal investment advice or trading signals.`,
+    '9. Common technical problems and what to tell them (use the platform and server names from the HELP CENTER when it gives them):',
+    '   - Login fails or "invalid account" on MT4/MT5: log in with the account number exactly as in the credentials email, the master (trading) password, not the investor one, and the exact server name from that email (type it in the server search if it is not listed); copy and paste without extra spaces; MT5 details only work in MT5; switch off any VPN or try another network; restart or reinstall the platform; a brand-new account can take a little while to become active.',
+    '   - Dashboard not showing trades or balance: it syncs from the platform and can lag behind; log out and back in, and check that they are looking at the same account number they trade on.',
+    '   - Verification, credentials or login email not received: check spam, junk and promotions, search the inbox for our name, confirm the address they signed up with, and use resend if the page offers it.',
+    `10. Questions about ${brand}'s products, rules, prices, instruments, platforms, community links or how anything works are never handed over: answer from the HELP CENTER, or say plainly that it is not listed and give the closest thing it does say. "Send me all the rules" deserves the full list as short bullet points.`,
     '',
     '# STYLE',
     `- Reply in ${LANGUAGE_LABEL[input.lang]}, matching how the customer writes (casual Roman Urdu gets casual Roman Urdu).`,
@@ -100,7 +105,7 @@ export function buildSupportAgentPrompt(input: SupportAgentPromptInput): string 
     '# OUTPUT TAGS (removed before the customer sees the reply)',
     '- End with [SOURCE: n], n being the ARTICLE you relied on most. Leave it out when you used none.',
     '- Only when a person must act (rule 6) or the customer asks for one: write your helpful reply, including one natural line that you are bringing in the team, then put [HANDOVER: short English reason] on the last line.',
-    '- Never reply with a tag alone. Do not write links or URLs.',
+    `- Never reply with a tag alone. Do not write links or URLs, except a link that appears word for word in the HELP CENTER or the instructions from ${brand} when the customer asks for it or needs it (a Discord or community invite, a sign-up or dashboard page). Never make one up or change it.`,
     `\n${PROP_FIRM_GLOSSARY}`,
     input.specialist ? specialistSection(input.specialist) : null,
     custom ? `\n# INSTRUCTIONS FROM ${brand.toUpperCase()}\n${custom}` : null,
@@ -180,15 +185,25 @@ export interface ParsedAgentReply {
   handoverReason: string | null;
 }
 
-export function parseAgentReply(raw: string): ParsedAgentReply {
+/**
+ * `allowedText` is the help centre and the workspace's instructions: a URL
+ * that appears there word for word (a Discord invite, the dashboard) is kept,
+ * so "send me the Discord link" is answered instead of handed over. Any
+ * other URL is one the model made up or changed, and is removed.
+ */
+export function parseAgentReply(raw: string, allowedText = ''): ParsedAgentReply {
   const source = Number(raw.match(SOURCE_TAG)?.[1]);
   const tag = raw.match(HANDOVER_TAG);
   const notCovered = NOT_COVERED_TAG.test(raw);
+  const allowed = (url: string) => {
+    const bare = url.replace(/[).,;:!?'"]+$/, '');
+    return bare.length > 10 && allowedText.includes(bare);
+  };
   const text = raw
     .replace(/\[(?:SOURCE|HANDOVER|NOT_COVERED|MISSING)[^\]]*\]/gi, '')
     .replace(/^#{1,6}\s+(.+)$/gm, '**$1**')
-    .replace(/\[([^\]]+)\]\((?:https?:\/\/|mailto:)[^\s)]+\)/g, '$1')
-    .replace(/(?:^|\s)https?:\/\/\S+/g, '')
+    .replace(/\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^\s)]+)\)/g, (_m, label: string, url: string) => (allowed(url) ? `${label}: ${url}` : label))
+    .replace(/(^|\s)(https?:\/\/\S+)/g, (_m, lead: string, url: string) => (allowed(url) ? `${lead}${url}` : ''))
     .replace(/[ \t]+$/gm, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -219,7 +234,7 @@ export function accountSituation(refs: { orderNumber?: string | null; accountNum
   ].filter(Boolean);
   return [
     'This looks like a question about the customer\'s own account, order or payment, which you cannot see.',
-    'Explain the rule that applies and what they can check. If a person must look it up or act on it, say the team will check it and add [HANDOVER: reason].',
+    'Explain the rule that applies and what they can check or try themselves (rule 9 for logins, dashboards and emails). Only if a person must still look it up or act on it, say the team will check it and add [HANDOVER: reason].',
     known.length
       ? `They gave: ${known.join(', ')}. Do not ask for these again.`
       : 'If you hand over, ask for their account number (or order id) and email in the same reply so the team can find them.',

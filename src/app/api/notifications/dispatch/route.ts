@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
       // Fetch conversation to find assigned agent
       const { data: conv } = await supabase
         .from('conversations')
-        .select('*, visitor:visitors(*), agent:agents(*)')
+        .select('*, visitor:visitors(*), agent:agents!assigned_agent_id(*)')
         .eq('id', conversation_id)
         .single();
 

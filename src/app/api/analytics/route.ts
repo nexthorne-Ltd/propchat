@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
       await Promise.all([
         supabase
           .from('conversations')
-          .select('*, visitor:visitors(*), agent:agents(*)')
+          .select('*, visitor:visitors(*), agent:agents!assigned_agent_id(*)')
           .eq('workspace_id', workspaceId)
           .gte('created_at', startDate.toISOString())
           .order('created_at', { ascending: true }),

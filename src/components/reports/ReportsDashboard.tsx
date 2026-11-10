@@ -26,6 +26,7 @@ import {
   ChevronDown,
   HelpCircle,
   ExternalLink,
+  Globe,
 } from 'lucide-react';
 import { listUnansweredQuestionsAction, type UnansweredQuestionRecord } from '@/app/actions/unanswered';
 import {
@@ -50,7 +51,10 @@ import {
   exportBreakdownsCsv,
   exportHeatmapCsv,
   exportSummaryOverviewCsv,
+  exportCountryTrafficCsv,
+  type CountryTraffic,
 } from '@/lib/reports/metrics';
+import { CountryFlag } from '@/components/ui/BrandIcon';
 import { Tabs } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -86,7 +90,8 @@ export function ReportsDashboard({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<(ReportsDashboardData & { meta: { groups: Array<{ id: string; name: string }>; agents: Array<{ id: string; name: string; role: string }> } }) | null>(null);
+  const [showAllCountries, setShowAllCountries] = useState(false);
+  const [data, setData] = useState<(ReportsDashboardData & { countryTraffic?: (CountryTraffic & { capped: boolean }) | null; meta: { groups: Array<{ id: string; name: string }>; agents: Array<{ id: string; name: string; role: string }> } }) | null>(null);
 
   // Leaderboard search & sort
   const [leaderboardSearch, setLeaderboardSearch] = useState('');
@@ -285,6 +290,15 @@ export function ReportsDashboard({
                 >
                   Busiest hours
                 </button>
+                {data.countryTraffic && (
+                  <button
+                    type="button"
+                    className="w-full text-left px-2.5 py-1.5 text-xs text-ink hover:bg-surface-3 rounded-md transition-colors"
+                    onClick={() => downloadCsv(exportCountryTrafficCsv(data.countryTraffic as CountryTraffic), `${workspace.name}_traffic_by_country`)}
+                  >
+                    Traffic by country
+                  </button>
+                )}
                 <button
                   type="button"
                   className="w-full text-left px-2.5 py-1.5 text-xs text-ink hover:bg-surface-3 rounded-md transition-colors"
@@ -610,6 +624,13 @@ export function ReportsDashboard({
                     </ResponsiveContainer>
                   </div>
                 </div>
+
+                <CountryTrafficCard
+                  traffic={data.countryTraffic}
+                  showAll={showAllCountries}
+                  onToggleShowAll={() => setShowAllCountries((v) => !v)}
+                  onDownload={(t) => downloadCsv(exportCountryTrafficCsv(t), `${workspace.name}_traffic_by_country`)}
+                />
               </div>
             )}
 
@@ -1271,6 +1292,118 @@ export function ReportsDashboard({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+const COUNTRY_PREVIEW = 10;
+
+/**
+ * Visitors per country for the selected dates. It counts traffic (everyone
+ * who was on the site), not tickets, so the agent, group and channel filters
+ * above don't change it; the subtitle says so rather than silently ignoring
+ * them.
+ */
+function CountryTrafficCard({
+  traffic,
+  showAll,
+  onToggleShowAll,
+  onDownload,
+}: {
+  traffic: (CountryTraffic & { capped: boolean }) | null | undefined;
+  showAll: boolean;
+  onToggleShowAll: () => void;
+  onDownload: (traffic: CountryTraffic) => void;
+}) {
+  const countries = traffic?.countries ?? [];
+  const visible = showAll ? countries : countries.slice(0, COUNTRY_PREVIEW);
+  const top = countries[0]?.visitors ?? 0;
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+            <Globe className="w-4 h-4 text-accent" />
+            Traffic by country
+          </h2>
+          <p className="text-xs text-ink-3">
+            Visitors on your site in this period, by country. Agent, group and channel filters don&apos;t apply.
+          </p>
+        </div>
+        {traffic && countries.length > 0 && (
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => onDownload(traffic)}
+            className="flex items-center gap-1 text-2xs shrink-0"
+          >
+            <Download className="w-3 h-3" /> CSV
+          </Button>
+        )}
+      </div>
+
+      {traffic === null ? (
+        <p className="text-xs text-danger py-6 text-center">
+          Couldn&apos;t load visitor countries. Refresh to try again.
+        </p>
+      ) : !traffic || traffic.totalVisitors === 0 ? (
+        <p className="text-xs text-ink-3 py-6 text-center">No visitors in this period.</p>
+      ) : countries.length === 0 ? (
+        <p className="text-xs text-ink-3 py-6 text-center">
+          {traffic.totalVisitors} visitor{traffic.totalVisitors === 1 ? '' : 's'}, but none had a known location.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-4 text-xs text-ink-2">
+            <span>
+              <span className="text-lg font-bold text-ink tabular-nums">{traffic.totalVisitors.toLocaleString()}</span>{' '}
+              visitors{traffic.capped ? ' (latest only)' : ''}
+            </span>
+            <span>
+              <span className="font-semibold text-ink tabular-nums">{countries.length}</span>{' '}
+              {countries.length === 1 ? 'country' : 'countries'}
+            </span>
+            {traffic.unknownVisitors > 0 && (
+              <span className="text-ink-3">
+                {traffic.unknownVisitors.toLocaleString()} with unknown location
+              </span>
+            )}
+          </div>
+
+          <ul className="space-y-2.5">
+            {visible.map((c) => (
+              <li key={c.key} className="text-xs">
+                <div className="flex items-center justify-between gap-3 mb-1">
+                  <span className="flex items-center gap-2 min-w-0 text-ink">
+                    <CountryFlag countryCode={c.countryCode} className="w-4 h-3" />
+                    <span className="truncate">{c.country}</span>
+                  </span>
+                  <span className="text-ink-2 tabular-nums shrink-0">
+                    {c.visitors.toLocaleString()} ({c.percentage}%)
+                  </span>
+                </div>
+                <div className="w-full bg-surface-3 rounded-full h-1.5">
+                  <div
+                    className="bg-accent h-1.5 rounded-full"
+                    style={{ width: `${top > 0 ? Math.max(2, (c.visitors / top) * 100) : 0}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {countries.length > COUNTRY_PREVIEW && (
+            <button
+              type="button"
+              onClick={onToggleShowAll}
+              className="mt-4 text-xs font-medium text-accent hover:underline"
+            >
+              {showAll ? 'Show top 10' : `Show all ${countries.length} countries`}
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }

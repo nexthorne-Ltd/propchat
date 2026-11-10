@@ -167,6 +167,32 @@ describe('handoff offers', () => {
   });
 });
 
+describe('asking for a person', () => {
+  // Each of these was handed to the team, with the bot switched off, before
+  // the bot read the question in it.
+  it.each([
+    'mujhe payout ke bare mein baat karni hai',
+    'drawdown ki baat kar sakta hun?',
+    'mere account ki baat krni thi',
+    'i want to know about the handover of funded account',
+  ])('does not read a topic question as one: %s', async (message) => {
+    const { asksForHuman } = await import('@/lib/ai/intent');
+    expect(asksForHuman(message)).toBe(false);
+  });
+
+  it.each([
+    'I want to speak with a team member.',
+    'kisi se baat karni hai',
+    'baat karwa do',
+    'team se connect karo',
+    'handover karo',
+    'please hand me over to a human',
+  ])('still recognises: %s', async (message) => {
+    const { asksForHuman } = await import('@/lib/ai/intent');
+    expect(asksForHuman(message)).toBe(true);
+  });
+});
+
 describe('handover summary', () => {
   it('tells the agent what happened, what was said, and what was given', () => {
     const message = 'mera order abhi tak nahi aya, order number 77120';

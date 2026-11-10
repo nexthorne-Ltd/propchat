@@ -319,7 +319,9 @@ async function buildWorkspaceIndex(workspaceId: string): Promise<HelpIndex> {
 const HUMAN_REQUEST =
   // A bare "agent" is not on the list: traders say "EA" and "trading agent",
   // and each false match turns the assistant off for the whole conversation.
-  /\b(human|real person|(?:real|live|human) agent|representative|operator|live (?:support|person)|(?:talk|speak) (?:to|with) (?:someone|a human|a person|an agent|support|a team member|team member)|connect\s+(?:me\s+)?(?:to|with)\s+(?:a\s+)?(?:human|person|agent|team\s*member|someone|support)|hand\s*over|handover|customer care|jonli\s+(?:odam|operator|xodim)|odam\s+bilan\s+gaplash\w*|xodim\s+bilan\s+gaplash\w*)\b/i;
+  // Nor is a bare "handover": "what happens at the handover to funded?" is a
+  // rules question. Only a hand-over *to a person* counts.
+  /\b(human|real person|(?:real|live|human) agent|representative|operator|live (?:support|person)|(?:talk|speak) (?:to|with) (?:someone|a human|a person|an agent|support|a team member|team member)|connect\s+(?:me\s+)?(?:to|with)\s+(?:a\s+)?(?:human|person|agent|team\s*member|someone|support)|(?:hand\s*(?:me\s+)?over|handover)\s+(?:me\s+)?to\s+(?:a\s+)?(?:human|person|agent|team(?:\s*member)?|someone|support)|customer care|jonli\s+(?:odam|operator|xodim)|odam\s+bilan\s+gaplash\w*|xodim\s+bilan\s+gaplash\w*)\b/i;
 
 /** Arabic has no \b in JS regex, so its phrases are matched on their own. */
 const HUMAN_REQUEST_AR =

@@ -1,9 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardWorkspace } from '@/lib/team/route-guard';
-import { calculateReportsDashboard, type SlaEventItem } from '@/lib/reports/metrics';
+import {
+  calculateCountryTraffic,
+  calculateReportsDashboard,
+  type CountryTraffic,
+  type SlaEventItem,
+} from '@/lib/reports/metrics';
 import type { ReportingEvent } from '@/types/database';
+import type { WorkspaceAccess } from '@/lib/team/access';
 
 export const dynamic = 'force-dynamic';
+
+const VISITOR_PAGE = 1000;
+const VISITOR_CAP = 20000;
+
+/**
+ * Traffic is visitors, not tickets: anyone who was on the site during the
+ * period (first seen before it ended, last seen after it started), chat or no
+ * chat. PostgREST caps a response at 1000 rows, so it pages, and stops at
+ * VISITOR_CAP so one busy workspace can't make the whole report slow. The
+ * agent, group and channel filters describe tickets and don't apply here.
+ * A failure returns null so the rest of the report still loads.
+ */
+async function loadCountryTraffic(
+  supabase: WorkspaceAccess['supabase'],
+  workspaceId: string,
+  startDate: Date,
+  endDate: Date,
+): Promise<(CountryTraffic & { capped: boolean }) | null> {
+  const rows: Array<{ location: string | null; ip_location_city: string | null; ip_location_country: string | null }> = [];
+  for (let from = 0; from < VISITOR_CAP; from += VISITOR_PAGE) {
+    const { data, error } = await supabase
+      .from('visitors')
+      .select('location, ip_location_city, ip_location_country')
+      .eq('workspace_id', workspaceId)
+      .gte('last_seen_at', startDate.toISOString())
+      .lte('first_seen_at', endDate.toISOString())
+      .order('last_seen_at', { ascending: false })
+      .range(from, from + VISITOR_PAGE - 1);
+    if (error) {
+      console.error('[Reports Error] Failed to load visitor countries:', error);
+      return null;
+    }
+    rows.push(...(data || []));
+    if (!data || data.length < VISITOR_PAGE) {
+      return { ...calculateCountryTraffic(rows), capped: false };
+    }
+  }
+  return { ...calculateCountryTraffic(rows), capped: true };
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -108,7 +153,10 @@ export async function GET(req: NextRequest) {
     if (groupId) slaQuery = slaQuery.eq('group_id', groupId);
     if (agentId) slaQuery = slaQuery.eq('assignee_id', agentId);
 
-    // 4. Fetch agents and groups metadata
+    // 4. Visitors by country, paged, started now so it runs beside the rest.
+    const countryTrafficPromise = loadCountryTraffic(supabase, workspaceId, startDate, endDate);
+
+    // 5. Fetch agents and groups metadata
     const [
       { data: eventsData, error: eventsErr },
       { count: priorCreatedCount },
@@ -131,6 +179,8 @@ export async function GET(req: NextRequest) {
       console.error('[Reports Error] Failed to load reporting events:', eventsErr);
       return NextResponse.json({ error: 'Could not load report metrics' }, { status: 500 });
     }
+
+    const countryTraffic = await countryTrafficPromise;
 
     const priorCreated = priorCreatedCount || 0;
     const priorSolved = priorSolvedCount || 0;
@@ -155,6 +205,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ...dashboardData,
+      countryTraffic,
       meta: {
         workspace_id: workspaceId,
         range,

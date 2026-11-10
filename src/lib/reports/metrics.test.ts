@@ -943,3 +943,28 @@ describe('Reports & CSAT Metrics Calculations', () => {
     });
   });
 });
+
+describe('calculateCountryTraffic', () => {
+  it('merges names, codes and timezone-only locations into one country and counts unknowns', async () => {
+    const { calculateCountryTraffic, exportCountryTrafficCsv } = await import('./metrics');
+    const traffic = calculateCountryTraffic([
+      { ip_location_country: 'Pakistan', ip_location_city: 'Lahore' },
+      { location: 'Karachi, Pakistan' },
+      { ip_location_country: 'PK' },
+      { location: 'Asia/Karachi' },
+      { ip_location_country: 'United States' },
+      { location: null },
+      {},
+    ]);
+    expect(traffic.totalVisitors).toBe(7);
+    expect(traffic.unknownVisitors).toBe(2);
+    expect(traffic.countries[0]).toMatchObject({ countryCode: 'PK', visitors: 4, percentage: 80 });
+    expect(traffic.countries[1]).toMatchObject({ countryCode: 'US', visitors: 1, percentage: 20 });
+    expect(exportCountryTrafficCsv(traffic).split('\n').at(-1)).toBe('Unknown,,2,');
+  });
+
+  it('handles no visitors', async () => {
+    const { calculateCountryTraffic } = await import('./metrics');
+    expect(calculateCountryTraffic([])).toEqual({ totalVisitors: 0, unknownVisitors: 0, countries: [] });
+  });
+});

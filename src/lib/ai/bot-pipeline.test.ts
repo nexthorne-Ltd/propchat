@@ -569,14 +569,15 @@ describe('routing other intents', () => {
     expect(r.internalNote).toBeUndefined();
   });
 
-  it('hands a request for a person to the inbox, with a summary, and turns the bot off', async () => {
+  it('hands a request for a person to the inbox, with a summary, and keeps the bot on for the question that follows', async () => {
     const r = await ask('I want to talk to a real person', {
       turns: [
         { role: 'user', content: 'Do you have a store in Islamabad?' },
         { role: 'assistant', content: lowConfidenceReply('en') },
       ],
     });
-    expect(r).toMatchObject({ intent: 'wants_human', shouldHandover: true, disableAi: true, priority: 'high' });
+    expect(r).toMatchObject({ intent: 'wants_human', shouldHandover: true, disableAi: false, priority: 'high' });
+    expect(r.replyText).toContain('tell me your question');
     expect(r.internalNote).toContain('Bot handover: Asked for a human');
     expect(r.internalNote).toContain('Earlier: "Do you have a store in Islamabad?"');
   });
@@ -878,12 +879,13 @@ describe('agent mode (whole help centre in the prompt)', () => {
   }
   const agentCalls = () => mockedChat.mock.calls.filter(([, req]) => req.system.includes('# HELP CENTER'));
 
-  function askAgent(message: string, opts: { systemPrompt?: string; subAgents?: SubAgentSettings } = {}) {
+  function askAgent(message: string, opts: { systemPrompt?: string; subAgents?: SubAgentSettings; botFailureCount?: number } = {}) {
     return generateHelpDeskResponseWithHandover({
       workspaceId: WORKSPACE_ID,
       conversationId: 'conv-1',
       incomingMessage: message,
       providerConfig: provider,
+      botFailureCount: opts.botFailureCount ?? 0,
       systemPrompt: opts.systemPrompt ?? null,
       helpCenterUrl: HELP_URL,
       workspaceName: 'Apex Funding',
@@ -917,6 +919,15 @@ describe('agent mode (whole help centre in the prompt)', () => {
     expect(r.shouldHandover).toBe(false);
     expect(r.replyText).toContain('hard breach');
     expect(agentCalls()[0][1].system).toContain('The customer is upset');
+  });
+
+  it('a retry is answered, not queued, even after earlier retries in the conversation', async () => {
+    agentAnswers('The daily drawdown limit is 5% of the starting balance. [SOURCE: {{n:Maximum loss rules}}]');
+    for (const botFailureCount of [1, 2]) {
+      const r = await askAgent('still not working, what is the daily drawdown limit?', { botFailureCount });
+      expect(r.shouldHandover).toBe(false);
+      expect(r.replyText).toContain('5%');
+    }
   });
 
   it('hands over only when the agent says a person must act, in its own words, and stays on', async () => {
@@ -1042,11 +1053,13 @@ describe('agent mode (whole help centre in the prompt)', () => {
       expect(r.replyText).toContain('8%');
     });
 
-    it('two refusals still hand the question on (the answer may really be unsupported)', async () => {
+    it('two refusals of a rules answer whose figures are all in the help centre still send it, not a handover', async () => {
       jevLive([0.02, 0.02]);
       agentAnswers(['Phase 1 needs 8%. [SOURCE: {{n:Maximum loss rules}}]', 'Phase 1 needs 8%. [SOURCE: {{n:Maximum loss rules}}]']);
-      await askAgent('tell me phase 1 target');
+      const r = await askAgent('tell me phase 1 target');
       expect(agentCalls().length).toBeGreaterThanOrEqual(2);
+      expect(r.shouldHandover).toBe(false);
+      expect(r.replyText).toContain('8%');
     });
   });
 });

@@ -24,6 +24,27 @@ describe('parseAgentReply', () => {
   it('removes links the model wrote', () => {
     expect(parseAgentReply('See [our rules](https://x.example/rules) or https://x.example').text).toBe('See our rules or');
   });
+
+  it('keeps a link that is word for word in the help centre, so "Discord link?" is answered', () => {
+    const help = 'Join our community: https://discord.gg/apexfund';
+    expect(parseAgentReply('Here it is: https://discord.gg/apexfund.', help).text).toBe('Here it is: https://discord.gg/apexfund.');
+    expect(parseAgentReply('[Discord](https://discord.gg/apexfund)', help).text).toBe('Discord: https://discord.gg/apexfund');
+    // Changed by the model: not in the help centre, so removed.
+    expect(parseAgentReply('Join https://discord.gg/apexfund2', help).text).toBe('Join');
+  });
+});
+
+describe('troubleshooting before handover', () => {
+  const prompt = buildSupportAgentPrompt({ botName: 'Ali', businessName: 'Apex', knowledge: '[ARTICLE 1]\nRules', lang: 'en' });
+  it('tells the model to troubleshoot logins, dashboards and missing emails, and never to hand over a rules question', () => {
+    expect(prompt).toContain('"invalid account" error');
+    expect(prompt).toContain('NOT a handover on the first message');
+    expect(prompt).toContain('master (trading) password');
+    expect(prompt).toContain('check spam, junk and promotions');
+    expect(prompt).toContain('are never handed over');
+    expect(prompt).not.toContain('credentials that do not work');
+    expect(prompt).not.toContain('is account specific');
+  });
 });
 
 describe('buildSupportAgentPrompt', () => {
