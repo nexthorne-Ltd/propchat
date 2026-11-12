@@ -33,7 +33,9 @@ describe('who sees which settings', () => {
     expect(ids('light_agent')).not.toContain('automation');
     for (const role of ['agent', 'light_agent'] as const) {
       const sections = visibleSections(role).filter((s) => s.id !== 'automation');
-      expect(sections.map((s) => s.id).sort()).toEqual(['channels', 'notifications', 'security', 'tickets']);
+      expect(sections.map((s) => s.id).sort()).toEqual(['ai', 'channels', 'notifications', 'security', 'tickets']);
+      // Everyone may check whether the bot replies; only admins configure it.
+      expect(sections.find((s) => s.id === 'ai')!.tabs.map((t) => t.id)).toEqual(['health']);
       const security = sections.find((s) => s.id === 'security')!;
       expect(security.tabs.map((t) => t.id)).toEqual(['sessions', 'twofactor']); // no audit log
     }

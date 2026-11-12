@@ -58,6 +58,7 @@ import { WebhooksSettings } from './WebhooksSettings';
 import { ApiKeysPanel } from './ApiKeysPanel';
 import { LangGraphSettings } from './LangGraphSettings';
 import { BotLearningSettings } from './BotLearningSettings';
+import { BotHealthCheck } from './BotHealthCheck';
 import { SubAgentsSettings } from './SubAgentsSettings';
 import { TraderDataSettings } from './TraderDataSettings';
 
@@ -494,6 +495,8 @@ function Page({
       return <BotLearningSettings workspaceId={workspace.id} />;
     case 'ai:advanced':
       return <LangGraphSettings workspaceId={workspace.id} />;
+    case 'ai:health':
+      return <BotHealthCheck workspaceId={workspace.id} />;
 
     case 'helpcenter:branding':
       return admin('helpcenter');

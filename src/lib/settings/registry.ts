@@ -132,6 +132,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
       { id: 'knowledge', label: 'Knowledge sources', description: 'The bot answers from your published help center articles and the Bot knowledge entries in the Help Center.', capability: 'manage_settings', keywords: ['knowledge', 'articles', 'notes', 'gaps', 'sources'] },
       { id: 'learning', label: 'Self-learning', description: 'The bot learns answers your team gave, checked against your help center. Review what it learned.', capability: 'manage_settings', keywords: ['learning', 'self-learning', 'train', 'training', 'reinforcement', 'learned answers', 'review', 'approve', 'feedback'] },
       { id: 'advanced', label: 'LangGraph', description: 'Connect your own multi-agent workflow.', capability: 'manage_settings', keywords: ['langgraph', 'pipeline', 'webhook', 'custom llm'] },
+      { id: 'health', label: 'Health check', description: 'Check whether the bot can reply right now, why recent messages were not answered, and ask it a test question.', capability: 'view', keywords: ['test', 'health', 'check', 'diagnose', 'not replying', 'not working', 'status', 'debug', 'reply'] },
     ],
   },
   {
