@@ -196,7 +196,12 @@ export async function runBotHealthCheckAction(workspaceId: string): Promise<BotH
   }
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const [{ data: events, error: evErr }, { count: offCount, error: offErr }] = await Promise.all([
+  const [
+    { data: events, error: evErr },
+    { count: offCount, error: offErr },
+    { count: visitorCount, error: vmErr },
+    { data: triggerStatus, error: tsErr },
+  ] = await Promise.all([
     supabase
       .from('ai_reply_events')
       .select('created_at, event, reason')
@@ -211,9 +216,43 @@ export async function runBotHealthCheckAction(workspaceId: string): Promise<BotH
       .eq('workspace_id', workspaceId)
       .eq('ai_mode', 'disabled')
       .neq('status', 'closed'),
+    supabase
+      .from('messages')
+      .select('id, conversations!inner(workspace_id)', { count: 'exact', head: true })
+      .eq('conversations.workspace_id', workspaceId)
+      .eq('sender_type', 'visitor')
+      .eq('is_internal', false)
+      .gte('created_at', since),
+    supabase.rpc('fn_bot_reply_trigger_status'),
   ]);
   if (evErr) console.error('[Bot Health] Could not read bot events:', evErr.message);
   if (offErr) console.error('[Bot Health] Could not count paused conversations:', offErr.message);
+  if (vmErr) console.error('[Bot Health] Could not count visitor messages:', vmErr.message);
+
+  // The database asks for a reply on every visitor message (migration
+  // 20261123090000), so a widget that cannot reach the app no longer
+  // silences the bot. It needs the migration and the Vault app URL.
+  const ts = (tsErr ? null : triggerStatus) as { trigger?: boolean; pg_net?: boolean; app_url?: boolean } | null;
+  const triggerReady = Boolean(ts?.trigger && ts?.pg_net && ts?.app_url);
+  checks.push({
+    id: 'server_trigger',
+    label: 'Server-side reply request',
+    status: triggerReady ? 'ok' : 'warn',
+    detail: triggerReady
+      ? 'The database asks the bot to reply to every visitor message, even when the widget cannot reach the app.'
+      : !ts || !ts.trigger
+        ? 'Not installed: the bot is only asked by the visitor\'s browser, so if the widget cannot reach the app the bot never replies.'
+        : !ts.app_url
+          ? 'Installed, but the Vault secret zentry_app_url is not set, so it cannot reach the app.'
+          : 'Installed, but the pg_net extension is off.',
+    fix: triggerReady
+      ? undefined
+      : !ts || !ts.trigger
+        ? 'Run supabase/migrations/20261123090000_bot_reply_server_trigger.sql in the Supabase SQL editor.'
+        : !ts.app_url
+          ? "In the Supabase SQL editor run: select vault.create_secret('https://your-live-domain', 'zentry_app_url');"
+          : 'Supabase → Database → Extensions: enable pg_net.',
+  });
 
   const rows = (events || []) as { created_at: string; event: string; reason: string | null }[];
   const last24h = {
@@ -223,13 +262,24 @@ export async function runBotHealthCheckAction(workspaceId: string): Promise<BotH
     errors: rows.filter((r) => r.event === 'provider_error' || r.event === 'route_error').length,
   };
 
-  if (rows.length === 0) {
+  const visitorMessages = visitorCount || 0;
+  if (rows.length === 0 && visitorMessages > 0) {
+    checks.push({
+      id: 'activity',
+      label: 'Recent activity',
+      status: 'fail',
+      detail: `Visitors sent ${visitorMessages} message(s) in the last 24 hours, but the bot was never asked to reply to any of them. The widget's request is not reaching this app.`,
+      fix: triggerReady
+        ? 'The server-side request is set up now; send a new widget message and run the check again.'
+        : 'Set up the server-side reply request (the check above), or make sure the embed script on your site is loaded from this app\'s live domain.',
+    });
+  } else if (rows.length === 0) {
     checks.push({
       id: 'activity',
       label: 'Recent activity',
       status: 'warn',
-      detail: 'The bot was not asked to reply in the last 24 hours.',
-      fix: 'Send a message from the widget on your site (or /demo.html?workspaceId=…). If nothing shows up here after that, the widget is not reaching the server.',
+      detail: 'No visitor messages and no bot activity in the last 24 hours.',
+      fix: 'Send a message from the widget on your site (or /demo.html?workspaceId=…), then run the check again.',
     });
   } else if (last24h.errors > 0 && last24h.delivered === 0) {
     checks.push({
