@@ -180,6 +180,19 @@ export async function getWorkspaceEffectivePlan(workspaceId: string): Promise<Wo
     }
   }
 
+  if (plansUnlimitedForEveryone()) {
+    return unlimitedEffectivePlan({
+      subscription,
+      plan,
+      effectiveLimits,
+      effectiveFeatures,
+      isTrialing,
+      trialDaysRemaining,
+      isTrialExpired,
+      status: effectiveStatus,
+    });
+  }
+
   return {
     subscription,
     plan,
@@ -189,6 +202,43 @@ export async function getWorkspaceEffectivePlan(workspaceId: string): Promise<Wo
     trialDaysRemaining,
     isTrialExpired,
     status: effectiveStatus,
+  };
+}
+
+/**
+ * Plan gating is switched off: every workspace, whatever plan or trial it is
+ * on, gets every feature (AI bot, reports, channels, …) with no monthly caps,
+ * so the bot never hands over because of a quota or an expired trial. Every
+ * check (auto-respond, platform gateway, invites, API, billing screen) reads
+ * the plan through getWorkspaceEffectivePlan, so overriding it here covers
+ * them all. A workspace a super admin suspended stays blocked. Set
+ * ENFORCE_PLAN_LIMITS=true to bring plan limits back (the plan tests do).
+ */
+export function plansUnlimitedForEveryone(): boolean {
+  return process.env.ENFORCE_PLAN_LIMITS !== 'true';
+}
+
+function unlimitedEffectivePlan(real: WorkspaceEffectivePlan): WorkspaceEffectivePlan {
+  const allFeatures = Object.fromEntries(
+    Object.keys({ ...LEGACY_FEATURES, ...real.effectiveFeatures }).map((k) => [k, true])
+  ) as Record<PlanFeatureKey, boolean>;
+  const noLimits = Object.fromEntries(
+    Object.keys(real.effectiveLimits).map((k) => [k, null])
+  ) as Record<PlanLimitKey, number | null>;
+
+  return {
+    ...real,
+    plan: {
+      ...real.plan,
+      ...noLimits,
+      ai_enabled: true,
+      ai_monthly_reply_limit: null,
+      features: allFeatures,
+    },
+    effectiveLimits: noLimits,
+    effectiveFeatures: allFeatures,
+    isTrialExpired: false,
+    status: real.status === 'suspended' ? 'suspended' : 'active',
   };
 }
 

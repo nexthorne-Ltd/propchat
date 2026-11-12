@@ -287,10 +287,12 @@ export async function proxy(request: NextRequest) {
   // /admin: the layout checks platform_access and renders the 403 page, and
   // every admin action checks it again, so only the sign-in redirect and the
   // owner-only section are decided here.
-  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && !pathname.startsWith('/admin/invite')) {
+  const isAdminAuthPage =
+    pathname.startsWith('/admin/invite') || pathname === '/admin/login' || pathname === '/admin/signup';
+  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && !isAdminAuthPage) {
     const uid = await currentUserId();
     if (!uid) {
-      const loginUrl = new URL('/login', request.url);
+      const loginUrl = new URL('/admin/login', request.url);
       loginUrl.searchParams.set('redirect', pathname + request.nextUrl.search);
       return NextResponse.redirect(loginUrl);
     }

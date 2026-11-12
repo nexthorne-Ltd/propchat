@@ -12,7 +12,12 @@ export default async function AdminLayout({
 }) {
   const headerList = await headers();
   const currentPath = headerList.get('x-next-pathname') || '';
-  if (currentPath === '/admin/invite' || currentPath.startsWith('/admin/invite/')) {
+  if (
+    currentPath === '/admin/invite' ||
+    currentPath.startsWith('/admin/invite/') ||
+    currentPath === '/admin/login' ||
+    currentPath === '/admin/signup'
+  ) {
     return <ToastProvider>{children}</ToastProvider>;
   }
 
@@ -41,7 +46,7 @@ export default async function AdminLayout({
             Authentication required. Platform super administrator privileges are required to access this system.
           </p>
           <a
-            href="/login?redirect=/admin"
+            href="/admin/login"
             className="inline-block px-4 py-2 rounded-xl bg-accent text-accent-ink text-xs font-semibold hover:opacity-90 transition-opacity"
           >
             Sign in to Zentry
@@ -80,10 +85,10 @@ export default async function AdminLayout({
               Return to Workspace
             </a>
             <a
-              href="/login?redirect=/admin"
+              href="/admin/login"
               className="inline-block px-4 py-2 rounded-xl bg-accent text-accent-ink text-xs font-semibold hover:opacity-90 transition-opacity"
             >
-              Sign in with Owner Account
+              Sign in with an admin account
             </a>
           </div>
         </div>

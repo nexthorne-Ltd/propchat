@@ -96,9 +96,6 @@ export function Sidebar({
     if (granted) sound.playIncomingMessage();
   };
 
-  const isAdmin =
-    currentAgent?.role === 'admin' || currentAgent?.role === 'owner';
-
   const nav: {
     view: View;
     label: string;
@@ -154,9 +151,8 @@ export function Sidebar({
           </span>
         ) : undefined,
     },
-    ...(isAdmin
-      ? [{ view: 'reports' as View, label: 'Analytics', Icon: BarChart2 }]
-      : []),
+    // Every member sees Analytics; /api/reports only needs the 'view' capability.
+    { view: 'reports' as View, label: 'Analytics', Icon: BarChart2 },
     {
       view: 'helpdesk',
       label: 'Help desk',

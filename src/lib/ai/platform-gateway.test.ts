@@ -1,3 +1,6 @@
+// These suites test plan enforcement itself, which is off by default.
+process.env.ENFORCE_PLAN_LIMITS = 'true';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { executePlatformAiReply, getPlatformAiConfigServerOnly, FRIENDLY_HANDOVER_MESSAGE } from './platform-gateway';
 import { getPlatformAiSettingsAction, savePlatformAiSettingsAction } from '@/app/actions/platform-ai';

@@ -1,3 +1,6 @@
+// These suites test plan enforcement itself, which is off by default.
+process.env.ENFORCE_PLAN_LIMITS = 'true';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   checkWorkspaceLimit,
