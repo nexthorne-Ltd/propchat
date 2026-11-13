@@ -8,9 +8,12 @@ import { isChatFirstDesign, isHexColor, isWidgetColorMode, isWidgetDesign, launc
 import { formatMarkdownToHtml } from '../../src/lib/widget/article-markdown';
 import { DEFAULT_BRAND_COLOR } from '../../src/lib/brand';
 
-const DEFAULT_API_URL = 'https://zen-try.site';
+// The bare domain answers every request with a 308 to www. A script follows
+// it, but the CORS preflight of an API call does not, so embeds loading
+// https://zen-try.site/widget.js saved messages while the bot was never asked.
+const DEFAULT_API_URL = 'https://www.zen-try.site';
 /** Hosts that only redirect to DEFAULT_API_URL; API calls go there directly. */
-const LEGACY_API_HOSTS = new Set(['chat-system-wabd.vercel.app']);
+const LEGACY_API_HOSTS = new Set(['chat-system-wabd.vercel.app', 'zen-try.site']);
 const DEFAULT_SUPABASE_URL ='https://vfjsaynnubxywdbevxtx.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmanNheW5udWJ4eXdkYmV2eHR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyNTA5MDEsImV4cCI6MjEwMzgyNjkwMX0.YyBCXMqwrOk5BRhQafYLFw8tiM5PC8lc8Yocodw9wf0';
 
