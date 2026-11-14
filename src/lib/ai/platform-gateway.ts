@@ -1,6 +1,38 @@
 import { serviceClient } from '@/lib/supabase/service';
 import { getWorkspaceEffectivePlan } from '@/lib/plans/enforce';
-import { chat, ChatRequest, ChatResult, ProviderConfig } from './provider';
+import { chat, ChatRequest, ChatResult, ProviderConfig, ProviderError } from './provider';
+
+/**
+ * A dropped connection or a busy provider (429 / 5xx) usually works a moment
+ * later. Without a second try one blip handed the customer to the team ("We've
+ * passed this to our team") for a question the bot could answer. Only a
+ * failure that came back quickly is retried, so a slow call cannot push the
+ * reply past the route's time budget; a bad key or bad request never is.
+ */
+const QUICK_FAILURE_MS = 6_000;
+const RETRY_DELAY_MS = 700;
+const NETWORK_ERROR = /fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|socket hang up|network/i;
+
+export function isTransientProviderError(err: unknown): boolean {
+  if (err instanceof ProviderError) {
+    return err.retryable || (err.status === undefined && NETWORK_ERROR.test(err.message));
+  }
+  const cause = (err as { cause?: { code?: string; message?: string } } | null)?.cause;
+  const text = [err instanceof Error ? err.message : String(err), cause?.code, cause?.message].filter(Boolean).join(' ');
+  return NETWORK_ERROR.test(text);
+}
+
+async function chatWithOneRetry(config: ProviderConfig, request: ChatRequest): Promise<ChatResult> {
+  const startedAt = Date.now();
+  try {
+    return await chat(config, request);
+  } catch (err) {
+    if (!isTransientProviderError(err) || Date.now() - startedAt > QUICK_FAILURE_MS) throw err;
+    console.warn('[Platform AI Gateway] Model call failed quickly, retrying once:', err instanceof Error ? err.message : err);
+    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+    return chat(config, request);
+  }
+}
 import { autoAssignConversation } from '@/lib/team/auto-assign';
 import { userError } from '@/lib/errors/user-error';
 
@@ -256,7 +288,7 @@ export async function executePlatformAiReply(
 
   let chatResult: ChatResult;
   try {
-    chatResult = await chat(activeConfig, request);
+    chatResult = await chatWithOneRetry(activeConfig, request);
     if (!chatResult || !chatResult.text || !chatResult.text.trim()) {
       throw userError('Empty reply received from model provider.');
     }

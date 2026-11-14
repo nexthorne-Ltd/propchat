@@ -24,13 +24,22 @@ import {
 } from './memory';
 import { retrieveWorkspaceDemonstrations } from './learning/human-reinforce';
 import {
-  propFirmWelcome,
   routeSubAgent,
   SUB_AGENT_BY_ID,
   subAgentEnabled,
+  type RouteResult,
   type SubAgentId,
   type SubAgentSettings,
 } from './sub-agents';
+import {
+  decideChatMode,
+  isOpeningMenu,
+  menuChoice,
+  modeSituation,
+  openingMenu,
+  somethingElseReply,
+  type ChatMode,
+} from './sales';
 import { chat, isConfigured, ProviderError, type ProviderConfig } from './provider';
 import { executePlatformAiReply, getPlatformAiConfigServerOnly } from './platform-gateway';
 import { getWorkspaceEffectivePlan } from '@/lib/plans/enforce';
@@ -237,6 +246,8 @@ export interface HelpDeskResponseResult {
   policyArm?: PolicyArm;
   /** Agent mode: the specialist that answered (sub-agents.ts). */
   subAgent?: SubAgentId;
+  /** Agent mode: whether this reply was in sales or support mode (sales.ts). */
+  chatMode?: ChatMode;
   /** Served from the answer cache: no retrieval decision was made. */
   cached?: boolean;
   /**
@@ -882,6 +893,8 @@ interface SupportAgentInput {
   lookup?: Extract<LookupStep, { kind: 'answer' }> | null;
   /** Jev, when the platform has it on: checks the reply against its cited article. */
   jev?: JevRuntime | null;
+  /** Sales or support mode for this message (sales.ts modeSituation). */
+  modeLines?: string[];
 }
 
 /** "[ARTICLE n]" block n of the full-knowledge text (loadFullKnowledge), or ''. */
@@ -1011,6 +1024,7 @@ async function answerAsSupportAgent(input: SupportAgentInput): Promise<HelpDeskR
       ? "Looking up the customer's record failed just now: answer as you would without it, and hand over if a person must check."
       : null,
     readingHint(input.lookup?.question || incomingMessage),
+    ...(input.modeLines ?? []),
   ].filter((s): s is string => Boolean(s));
   const record = input.lookup?.record
     ? { found: input.lookup.record.found, text: input.lookup.record.text, verifiedEmail: input.lookup.verifiedEmail }
@@ -1519,12 +1533,30 @@ async function respondToVisitor({
   // centre, failed call, unbacked figures) falls through to the strict routes.
   if (agentMode) {
     const angerOnly = intent.intent === 'wants_human' && intent.reason === FRUSTRATION_REASON && agentTakesAnger;
-    const ruled = routeSubAgent({
-      message: incomingMessage,
-      recent: conversationMessages,
-      intent: intent.intent,
-      asksForHuman: intent.intent === 'wants_human' && !angerOnly,
-    });
+    // An answer to the opening menu (sales.ts) decides the specialist itself:
+    // "1" or its button is Sales, "2" is support (General asks what the
+    // problem is), "3" is a question back, no model.
+    const choice = menuChoice(incomingMessage, priorTurns);
+    if (choice === 3) {
+      return {
+        replyText: somethingElseReply(lang),
+        shouldHandover: false,
+        canAnswerFromDocs: false,
+        intent: intent.intent,
+        intentSource: intent.source,
+        disableAi: false,
+        subAgent: 'greeting',
+        chatMode: 'neutral',
+      };
+    }
+    const ruled: RouteResult = choice
+      ? { agent: choice === 1 ? 'pricing_offers' : 'general', reason: `Picked option ${choice} from the opening menu`, certainty: 'sure' }
+      : routeSubAgent({
+          message: incomingMessage,
+          recent: conversationMessages,
+          intent: intent.intent,
+          asksForHuman: intent.intent === 'wants_human' && !angerOnly,
+        });
     // A tie between topics, or no topic at all: Jev, then the model, may
     // pick instead (router-assist.ts). Clear routes cost nothing extra.
     const route = await assistRoute({
@@ -1567,6 +1599,10 @@ async function respondToVisitor({
       };
     }
     const lookup = step.kind === 'answer' ? step : null;
+    // Sales or support for this message: a problem is never sold to, and the
+    // Sales specialist switched off means nobody is sold to at all.
+    const mode = decideChatMode({ message: incomingMessage, recent: priorTurns, agent: route.agent, intent: intent.intent });
+    const modeLines = modeSituation(mode, incomingMessage, subAgentEnabled(subAgents, 'pricing_offers'));
     if (lookup) {
       const reply = await answerAsSupportAgent({
         workspaceId,
@@ -1592,8 +1628,9 @@ async function respondToVisitor({
         subAgentInstructions: subAgents?.[lookup.subAgent]?.instructions ?? null,
         lookup,
         jev,
+        modeLines,
       });
-      if (reply) return { ...reply, subAgent: lookup.subAgent };
+      if (reply) return { ...reply, subAgent: lookup.subAgent, chatMode: mode.mode };
       // After a code the visitor's message is only digits: the strict path
       // has nothing to answer, so the team takes the original question.
       if (lookup.justVerified) {
@@ -1611,23 +1648,16 @@ async function respondToVisitor({
     const specialist = SUB_AGENT_BY_ID[route.agent];
 
     if (route.agent === 'greeting' && intent.intent === 'small_talk') {
-      const ongoing = resuming || Boolean(humanContext) || priorTurns.some((t) => t.role === 'assistant');
+      const ongoing = resuming || Boolean(humanContext) || priorTurns.some((t) => t.role === 'assistant' && !isOpeningMenu(t.content));
       const greeting = intent.smallTalkKind === 'greeting' || !intent.smallTalkKind;
-      const text = greeting && ongoing
-        ? welcomeBackReply(lang)
+      // A new chat opens with the menu (sales.ts): new trader or a problem,
+      // in the visitor's language, with the options as buttons.
+      const menu = greeting && !ongoing ? openingMenu(lang, name, cannedGreeting) : null;
+      const text = menu
+        ? menu.text
         : greeting
-        ? cannedGreeting || propFirmWelcome(lang, brand, name)
+        ? welcomeBackReply(lang)
         : smallTalkReply(intent.smallTalkKind ?? 'greeting', lang, brand, name, null, incomingMessage);
-      // On a fresh greeting show topic chips so the visitor can jump to what they need
-      // without typing. Shown only on greetings, not on thanks/bye/other small talk.
-      const greetingQuickReplies: Array<{ label: string; value: string }> | null =
-        greeting && !ongoing
-          ? [
-              { label: '💰 Pricing & Plans', value: 'What are the challenge prices and account sizes?' },
-              { label: '📋 Trading Rules', value: 'What are the trading rules and drawdown limits?' },
-              { label: '💸 Payouts', value: 'How and when can I request a payout?' },
-            ]
-          : null;
       return {
         replyText: text,
         shouldHandover: false,
@@ -1636,7 +1666,7 @@ async function respondToVisitor({
         intentSource: intent.source,
         disableAi: false,
         subAgent: 'greeting',
-        quickReplies: greetingQuickReplies,
+        quickReplies: menu?.quickReplies ?? null,
       };
     }
 
@@ -1676,8 +1706,9 @@ async function respondToVisitor({
         subAgent: route.agent,
         subAgentInstructions: subAgents?.[route.agent]?.instructions ?? null,
         jev,
+        modeLines,
       });
-      if (reply) return { ...reply, subAgent: route.agent };
+      if (reply) return { ...reply, subAgent: route.agent, chatMode: mode.mode };
     }
   }
 
@@ -1685,21 +1716,14 @@ async function respondToVisitor({
     case 'small_talk': {
       // The welcome is for a new conversation. "hi" in one that is already
       // going, or that a person handled before the bot came back, is not.
-      const ongoing = resuming || Boolean(humanContext) || priorTurns.some((t) => t.role === 'assistant');
+      const ongoing = resuming || Boolean(humanContext) || priorTurns.some((t) => t.role === 'assistant' && !isOpeningMenu(t.content));
       const greeting = intent.smallTalkKind === 'greeting' || !intent.smallTalkKind;
-      const text = greeting && ongoing
+      const menu = greeting && !ongoing ? openingMenu(lang, name, cannedGreeting) : null;
+      const text = menu
+        ? menu.text
+        : greeting
         ? welcomeBackReply(lang)
-        : cannedGreeting && greeting
-        ? cannedGreeting
         : smallTalkReply(intent.smallTalkKind ?? 'greeting', lang, brand, name, null, incomingMessage);
-      const strictGreetingQuickReplies: Array<{ label: string; value: string }> | null =
-        greeting && !ongoing
-          ? [
-              { label: '💰 Pricing & Plans', value: 'What are the challenge prices and account sizes?' },
-              { label: '📋 Trading Rules', value: 'What are the trading rules and drawdown limits?' },
-              { label: '💸 Payouts', value: 'How and when can I request a payout?' },
-            ]
-          : null;
       return {
         replyText: text,
         shouldHandover: false,
@@ -1707,7 +1731,7 @@ async function respondToVisitor({
         intent: intent.intent,
         intentSource: intent.source,
         disableAi: false,
-        quickReplies: strictGreetingQuickReplies,
+        quickReplies: menu?.quickReplies ?? null,
       };
     }
 

@@ -11,6 +11,11 @@ vi.mock('./provider', () => ({
     text: 'Hello, this is an AI response generated via platform credentials.',
   })),
   isConfigured: (config: any) => Boolean(config && config.apiKey),
+  ProviderError: class ProviderError extends Error {
+    constructor(message: string, readonly provider: string, readonly status?: number, readonly retryable = false) {
+      super(message);
+    }
+  },
 }));
 
 // Mock auto-assign
@@ -222,6 +227,31 @@ describe('Platform AI Architecture & Gateway', () => {
       updated_at: new Date().toISOString(),
       updated_by: 'super-admin-1',
     };
+  });
+
+  it('a dropped connection is retried once, so one blip does not hand the customer to the team', async () => {
+    const { chat } = await import('./provider');
+    vi.mocked(chat).mockRejectedValueOnce(new TypeError('fetch failed'));
+    const res = await executePlatformAiReply({
+      workspaceId: WS_ID,
+      conversationId: CONV_ID,
+      request: { system: 'You are an AI assistant.', messages: [{ role: 'user', content: 'What is the daily drawdown?' }] },
+    });
+    expect(res.ok).toBe(true);
+    expect(vi.mocked(chat)).toHaveBeenCalledTimes(2);
+  });
+
+  it('a bad key is not retried', async () => {
+    const { chat, ProviderError } = await import('./provider');
+    vi.mocked(chat).mockClear();
+    vi.mocked(chat).mockRejectedValueOnce(new ProviderError('invalid api key', 'compatible', 401, false));
+    const res = await executePlatformAiReply({
+      workspaceId: WS_ID,
+      conversationId: CONV_ID,
+      request: { system: 'You are an AI assistant.', messages: [{ role: 'user', content: 'hi' }] },
+    });
+    expect(res.ok).toBe(false);
+    expect(vi.mocked(chat)).toHaveBeenCalledTimes(1);
   });
 
   it('Case 1: plan with AI on -> reply works and monthly usage increments by 1 atomically', async () => {

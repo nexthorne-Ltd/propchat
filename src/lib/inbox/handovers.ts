@@ -135,6 +135,44 @@ export function isWaitingForPerson(conv: ConversationBits): boolean {
   );
 }
 
+/**
+ * The thread itself says a customer is still waiting: its newest handover
+ * note has no public reply from a person after it. The conversation's flags
+ * (isWaitingForPerson) can miss a handover, for example when the bot was
+ * switched back on afterwards, so the Connect banner checks both. Messages
+ * in any order.
+ */
+export function pendingHandoverIn(
+  messages: Array<{ created_at: string; sender_type: string; sender_id?: string | null; is_internal?: boolean | null; metadata?: Record<string, unknown> | null }>
+): boolean {
+  const newestFirst = [...messages].sort((a, b) => b.created_at.localeCompare(a.created_at));
+  for (const m of newestFirst) {
+    if (m.sender_type === 'agent' && m.sender_id && !m.is_internal && !m.metadata?.is_welcome) return false;
+    if (m.is_internal && (m.metadata?.is_handover === true || m.metadata?.system_event === 'handover')) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether a person has taken a chat handed over at `since`: the handover
+ * ring stops on this. A public reply from anyone on the team (the database
+ * stamps last_human_reply_at and pauses the bot as human_reply), Connect or
+ * Take over (agent_paused), or closing the chat. Only what
+ * happened after the handover counts, so the conversation row arriving a
+ * moment after the handover note, still showing an older takeover, does not
+ * silence a new one.
+ */
+export function handoverHandled(
+  conv: Pick<Conversation, 'status' | 'ai_paused_reason' | 'ai_needs_attention_at' | 'channel_metadata' | 'updated_at'>,
+  since: string
+): boolean {
+  if (conv.status === 'closed') return true;
+  const lastHuman = (conv.channel_metadata as Record<string, unknown> | null)?.last_human_reply_at;
+  if (typeof lastHuman === 'string' && lastHuman >= since) return true;
+  const takenBy = conv.ai_paused_reason === 'agent_paused' || conv.ai_paused_reason === 'human_reply';
+  return takenBy && !conv.ai_needs_attention_at && Boolean(conv.updated_at && conv.updated_at >= since);
+}
+
 /** Plain-words reason for the card; the raw text stays in the tooltip. */
 export function friendlyReason(reason: string | null): string | null {
   if (!reason) return null;

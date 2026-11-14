@@ -173,6 +173,79 @@ class SoundManager {
     osc.stop(now + 0.08);
   }
 
+  /**
+   * A customer the bot handed over is waiting for a person: a phone-style
+   * ring (two close tones with a fast warble, unlike every bell above) that
+   * repeats until stopHandoverRing. The dashboard stops it when someone takes
+   * the chat; the mute button silences it at once, since every ring checks
+   * the switch.
+   */
+  private ringTimer: ReturnType<typeof setInterval> | null = null;
+
+  public startHandoverRing() {
+    if (this.ringTimer) return;
+    this.playRingBurst();
+    this.ringTimer = setInterval(() => this.playRingBurst(), 3000);
+  }
+
+  public stopHandoverRing() {
+    if (this.ringTimer) clearInterval(this.ringTimer);
+    this.ringTimer = null;
+  }
+
+  public isRinging(): boolean {
+    return this.ringTimer !== null;
+  }
+
+  /** One "ring-ring": two 0.45 s bursts of 440 + 480 Hz warbled at 20 Hz. */
+  private playRingBurst() {
+    this.hydrate();
+    if (!this.soundEnabled) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const master = ctx.createGain();
+    master.gain.value = 0.55;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -12;
+    comp.ratio.value = 5;
+    master.connect(comp);
+    comp.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    for (const start of [now, now + 0.6]) {
+      const length = 0.45;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0, start);
+      env.gain.linearRampToValueAtTime(1, start + 0.02);
+      env.gain.setValueAtTime(1, start + length - 0.05);
+      env.gain.linearRampToValueAtTime(0, start + length);
+      env.connect(master);
+
+      // The warble: a 20 Hz wave swinging the level between 0.2 and 1.
+      const warble = ctx.createGain();
+      warble.gain.value = 0.6;
+      const lfo = ctx.createOscillator();
+      const lfoDepth = ctx.createGain();
+      lfo.frequency.value = 20;
+      lfoDepth.gain.value = 0.4;
+      lfo.connect(lfoDepth);
+      lfoDepth.connect(warble.gain);
+      warble.connect(env);
+      lfo.start(start);
+      lfo.stop(start + length + 0.02);
+
+      for (const freq of [440, 480]) {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        osc.connect(warble);
+        osc.start(start);
+        osc.stop(start + length + 0.02);
+      }
+    }
+  }
+
   // Attention triple chime for a new visitor starting a conversation
   public playNewConversation() {
     if (!this.soundEnabled) return;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -18,7 +18,8 @@ import { sendBrowserNotification, cn } from '@/lib/utils';
 import { updateFaviconBadge } from '@/lib/favicon';
 import { SetupChecklist } from '@/components/dashboard/SetupChecklist';
 import { isVisitorOnline } from '@/lib/tracking/visitor-tracking';
-import { isWaitingForPerson } from '@/lib/inbox/handovers';
+import { handoverHandled, isWaitingForPerson, pendingHandoverIn } from '@/lib/inbox/handovers';
+import { userError } from '@/lib/errors/user-error';
 import type { SectionId } from '@/components/dashboard/SettingsHub';
 import { BarChart2, BookOpen, Inbox, MessagesSquare, Radio, Settings, Smartphone, ShieldAlert, LogOut, Sparkles, Ticket, HelpCircle, Hand } from 'lucide-react';
 import { exitSuperAdminWorkspaceViewAction } from '@/app/actions/platform';
@@ -165,6 +166,36 @@ export default function DashboardPage() {
 
   const conversationsRef = useRef<Conversation[]>([]);
   conversationsRef.current = conversations;
+
+  // Handovers ringing on this screen: conversation id → when it was handed
+  // over. The phone ring (sound.startHandoverRing) keeps going until a person
+  // takes each one: a reply from anyone on the team, Connect, Take over, or
+  // closing it (handoverHandled). Muting sound silences it at once.
+  const [handedOver, setRinging] = useState<Record<string, string>>({});
+  // Derived, not pruned: a handled entry simply stops counting, and a new
+  // handover on the same chat overwrites its time and rings again.
+  const ringing = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const [id, since] of Object.entries(handedOver)) {
+      const conv = conversations.find((c) => c.id === id);
+      if (!conv || !handoverHandled(conv, since)) out[id] = since;
+    }
+    return out;
+  }, [handedOver, conversations]);
+  const ringingCount = Object.keys(ringing).length;
+  useEffect(() => {
+    if (ringingCount > 0) sound.startHandoverRing();
+    else sound.stopHandoverRing();
+  }, [ringingCount]);
+  useEffect(() => () => sound.stopHandoverRing(), []);
+  const stopRinging = useCallback((id: string) => {
+    setRinging((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
 
   // Team chat. The thread list lives here so the sidebar badge and alerts work
   // on every view. A direct message or an @mention rings (unless that thread
@@ -950,7 +981,8 @@ export default function DashboardPage() {
             if (!meta.assigned_agent_id || meta.assigned_agent_id === me) {
               const conv = conversationsRef.current.find((c) => c.id === newMsg.conversation_id);
               const customer = conv?.visitor?.name || conv?.visitor?.email || 'A customer';
-              sound.playMention();
+              const since = newMsg.created_at || new Date().toISOString();
+              setRinging((prev) => ({ ...prev, [newMsg.conversation_id]: since }));
               sendBrowserNotification(
                 meta.assigned_agent_id ? `${customer} needs you` : `${customer} needs someone`,
                 'The bot could not answer. Open the chat to reply.',
@@ -1592,6 +1624,55 @@ export default function DashboardPage() {
     );
   };
 
+  /**
+   * "Connect": a person takes a chat the bot handed over. The bot stops, the
+   * chat is assigned to them if nobody has it, and the customer is told a
+   * person is here. That public line is a person's reply, so the database
+   * clears the handover for every teammate (fn_human_reply_takes_over) and
+   * their rings stop too. Written here rather than through handleSendMessage,
+   * whose copy of the conversation still has the bot on at this point.
+   */
+  const handleConnect = async (conversationId: string) => {
+    const me = currentAgentRef.current;
+    if (!me) throw userError('Your session expired. Reload and try again.');
+    const conv = conversationsRef.current.find((c) => c.id === conversationId);
+    if (!conv) throw userError('This conversation is no longer in your inbox.');
+    const now = new Date().toISOString();
+    const assign = conv.assigned_agent_id ? {} : { agent_id: me.id, assigned_agent_id: me.id };
+    const updates = {
+      ai_mode: 'disabled' as const,
+      // The database allows only its own reasons; a person pausing the bot is agent_paused.
+      ai_paused_reason: 'agent_paused' as const,
+      ai_needs_attention_at: null,
+      updated_at: now,
+      ...assign,
+    };
+    const { error: convError } = await supabase.from('conversations').update(updates).eq('id', conversationId);
+    if (convError) {
+      console.error('[Connect Error]:', convError);
+      throw userError('Could not take this chat. Try again.');
+    }
+    stopRinging(conversationId);
+    setConversations((prev) =>
+      prev.map((c) => (c.id === conversationId ? { ...c, ...updates, ...(assign.agent_id ? { agent: me } : {}) } : c))
+    );
+
+    const name = me.name?.trim() || 'a member of our team';
+    const { error: msgError } = await supabase.from('messages').insert({
+      conversation_id: conversationId,
+      sender_type: 'agent',
+      sender_id: me.id,
+      content: `Hi, I'm ${name}. You're now connected with our team, and I'll help you from here.`,
+      is_internal: false,
+      metadata: { agent_connected: true },
+    });
+    if (msgError) {
+      console.error('[Connect Error]: greeting not sent:', msgError);
+      throw userError('You took the chat, but the hello to the customer was not sent. Reply to let them know you are here.');
+    }
+    sound.playSentMessage();
+  };
+
   const handleAssignAgent = async (agentId: string | null) => {
     if (!selectedConversationId) return;
 
@@ -1839,41 +1920,41 @@ export default function DashboardPage() {
                   }
                 }}
                 aiAnswering={isAiAnswering(activeConversation, currentWorkspace)}
+                waitingForPerson={
+                  activeConversation.status !== 'closed' &&
+                  (isWaitingForPerson(activeConversation) || pendingHandoverIn(messages))
+                }
+                ringing={activeConversation.id in ringing}
+                onConnect={() => handleConnect(activeConversation.id)}
                 onToggleAiMode={async (mode) => {
-                  if (!selectedConversationId) return;
-                  const now = new Date().toISOString();
-                  const metaUpdate = {
-                    ...((activeConversation?.channel_metadata as Record<string, any>) || {}),
-                    ...(mode === 'autopilot' ? { autopilot_enabled_at: now } : {}),
-                    ...(mode === 'disabled' ? { ai_disabled_at: now } : {}),
-                  };
+                  const id = activeConversation.id;
                   const isAutopilot = mode === 'autopilot';
-                  const dbUpdates: Record<string, any> = {
+                  // channel_metadata is not written: this copy of it can be
+                  // older than the database's (a reply sent a moment ago
+                  // stamped last_human_reply_at there), and writing it back
+                  // erased that. The trigger records when the switch changed
+                  // (ai_resumed_at, ai_control_changed_at), which is what the
+                  // auto-responder reads.
+                  const dbUpdates = {
                     ai_mode: mode,
-                    updated_at: now,
-                    channel_metadata: metaUpdate,
+                    updated_at: new Date().toISOString(),
                     ...(isAutopilot
-                      ? {
-                          ai_paused_reason: null,
-                          ai_needs_attention_at: null,
-                          ai_resumed_at: now,
-                        }
-                      : {
-                          ai_paused_reason: 'agent_takeover',
-                        }),
+                      ? { ai_paused_reason: null, ai_needs_attention_at: null }
+                      : { ai_paused_reason: 'agent_paused' as const }),
                   };
-                  await supabase
+                  const { data: fresh, error } = await supabase
                     .from('conversations')
                     .update(dbUpdates)
-                    .eq('id', selectedConversationId);
-
-                  setConversations((prev) =>
-                    prev.map((c) =>
-                      c.id === selectedConversationId
-                        ? { ...c, ...dbUpdates, ai_mode: mode, channel_metadata: metaUpdate }
-                        : c
-                    )
-                  );
+                    .eq('id', id)
+                    .select('*')
+                    .maybeSingle();
+                  if (error || !fresh) {
+                    console.error('[Bot Toggle Error]:', error);
+                    throw userError(
+                      isAutopilot ? 'Could not turn the bot on. Try again.' : 'Could not pause the bot. Try again.'
+                    );
+                  }
+                  setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, ...fresh } : c)));
                 }}
               />
 

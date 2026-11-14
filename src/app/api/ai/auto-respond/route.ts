@@ -35,6 +35,7 @@ import { translateVisitorMessage } from '@/lib/ai/inbound-translation';
 import { checkWorkspaceFeature, checkWorkspaceLimit, incrementWorkspaceUsage } from '@/lib/plans/enforce';
 import { recordPolicyOutcome } from '@/lib/ai/learning/policy';
 import { looksLikeImageUrl, messageWithImage, readScreenshot, type ImageReading } from '@/lib/ai/vision';
+import { isOpeningMenu } from '@/lib/ai/sales';
 
 export const maxDuration = 60;
 
@@ -464,8 +465,10 @@ export async function POST(req: NextRequest) {
           Date.parse(m.created_at) <= targetAt &&
           !m.is_internal &&
           // The widget's welcome line is not part of the conversation, and
-          // would make every first "hi" look like a returning one.
-          !m.metadata?.is_welcome &&
+          // would make every first "hi" look like a returning one. The opening
+          // menu is kept, so a typed "1" after it is read as option 1
+          // (sales.ts); the pipeline does not count it as an earlier reply.
+          (!m.metadata?.is_welcome || isOpeningMenu(m.content)) &&
           !m.metadata?.system_event &&
           ['visitor', 'agent', 'ai'].includes(m.sender_type) &&
           typeof m.content === 'string' &&
@@ -806,6 +809,8 @@ export async function POST(req: NextRequest) {
       policy_arm: result.policyArm ?? null,
       // Agent mode's specialist, shown on the reply in the inbox.
       sub_agent: result.subAgent ?? null,
+      // Sales or support mode for this reply (sales.ts), for the team's eyes.
+      chat_mode: result.chatMode ?? null,
       // Quick reply chips rendered in the widget below the bot bubble.
       // Null means no chips; an empty array is treated the same.
       quick_replies: result.quickReplies?.length ? result.quickReplies : null,

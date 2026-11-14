@@ -251,6 +251,25 @@ export function Sidebar({
             </button>
           );
         })}
+        {/* The demo page talks to this workspace's own inbox and bot, so the
+            team can try the widget (greeting menu, sales and support replies)
+            without installing it anywhere. A link, so it can open in a new tab. */}
+        {workspace?.id && (
+          <a
+            href={`/demo.html?workspaceId=${encodeURIComponent(workspace.id)}&name=${encodeURIComponent(workspace.name || '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open a demo website with your chat widget and talk to your own inbox"
+            className="w-full h-9 mt-2 px-2.5 rounded-sm flex items-center justify-between gap-2 text-ui font-medium text-ink-2 hover:bg-surface-3 hover:text-ink transition-colors duration-150 group"
+          >
+            <span className="flex items-center gap-2.5 truncate">
+              <Sparkles className="w-4 h-4 shrink-0 text-ink-3 group-hover:text-ink" aria-hidden="true" />
+              Test chat
+            </span>
+            <ExternalLink className="w-3.5 h-3.5 shrink-0 text-ink-3" aria-hidden="true" />
+            <span className="sr-only">(opens in a new tab)</span>
+          </a>
+        )}
       </nav>
 
       {/* Footer: Quick controls + Agent Profile */}

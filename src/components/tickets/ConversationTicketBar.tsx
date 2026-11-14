@@ -5,8 +5,8 @@ import { AlertCircle, ArrowUpRight, ChevronDown, Clock, CornerDownRight, Ticket 
 import type { Ticket, TicketPriority, TicketStatus, TicketType } from '@/types/database';
 import { createClient } from '@/lib/supabase/client';
 import { Menu } from '@/components/ui/Menu';
-import { StatusBadge, PriorityLabel } from '@/components/tickets/TicketBits';
-import { PRIORITY_LABEL, SETTABLE_STATUSES, STATUS_LABEL, TICKET_PRIORITIES, TICKET_TYPES, TYPE_LABEL } from '@/lib/tickets/views';
+import { StatusBadge } from '@/components/tickets/TicketBits';
+import { SETTABLE_STATUSES, STATUS_LABEL, TICKET_TYPES, TYPE_LABEL } from '@/lib/tickets/views';
 import { updateTicketAction } from '@/app/actions/tickets';
 import { errorMessage } from '@/lib/errors/user-error';
 import { cn } from '@/lib/utils';
@@ -166,18 +166,8 @@ export function ConversationTicketBar({
               </span>
             )}
           />
-          <Menu<TicketPriority>
-            label="Ticket priority"
-            value={ticket.priority}
-            options={TICKET_PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABEL[p] }))}
-            onChange={(priority) => void change({ priority })}
-            trigger={() => (
-              <span className="hidden sm:inline-flex items-center gap-0.5 cursor-pointer">
-                <PriorityLabel priority={ticket.priority} />
-                <ChevronDown className="w-3 h-3 text-ink-3" />
-              </span>
-            )}
-          />
+          {/* Priority is set on the row below (it is the same value, kept in
+              step by the database), so it is not repeated here. */}
           <Menu<TicketType>
             label="Ticket type"
             value={ticket.type}
@@ -197,7 +187,6 @@ export function ConversationTicketBar({
           title={closed ? 'Closed tickets are read-only. A new message from the customer opens a follow-up ticket.' : 'You can view this ticket but not change it.'}
         >
           <StatusBadge status={ticket.status} />
-          <PriorityLabel priority={ticket.priority} className="hidden sm:inline-flex" />
         </span>
       )}
 

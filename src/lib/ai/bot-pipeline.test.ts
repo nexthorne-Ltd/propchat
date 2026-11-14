@@ -74,6 +74,7 @@ vi.mock('@/lib/ai/provider', async (importOriginal) => {
 import { chat, type ProviderConfig } from '@/lib/ai/provider';
 import { generateHelpDeskResponseWithHandover, lowConfidenceReply, partialAnswerHandoverLine, teamHandlesTopicReply } from '@/lib/ai/anthropic';
 import type { SubAgentSettings } from '@/lib/ai/sub-agents';
+import { openingMenu, somethingElseReply } from '@/lib/ai/sales';
 import { noAnswerHandoverReply, pendingUpdateReply, welcomeBackReply } from '@/lib/ai/intent';
 import { invalidateHelpIndex } from '@/lib/ai/help-answer';
 
@@ -558,7 +559,7 @@ describe('help-center questions with a model configured', () => {
 
 describe('routing other intents', () => {
   it.each([
-    ['hi', 'Welcome to Acme Store'],
+    ['hi', 'How can I help you today?'],
     ['thanks!', "You're welcome"],
     ['shukriya bhai', 'Koi baat nahi'],
   ])('"%s" gets a short small-talk reply', async (message, expected) => {
@@ -799,9 +800,10 @@ describe('carrying on after a person (bot switched back on)', () => {
     expect(r.replyText).not.toContain('Welcome to');
   });
 
-  it('greets a brand-new conversation with the welcome', async () => {
+  it('greets a brand-new conversation with the opening menu', async () => {
     const r = await ask('hello');
-    expect(r.replyText).toContain('Welcome to Acme Store');
+    expect(r.replyText).toBe(openingMenu('en').text);
+    expect(r.quickReplies).toHaveLength(3);
   });
 
   it("tells the model what the person said, not to contradict it, and not to speak as them", async () => {
@@ -958,12 +960,50 @@ describe('agent mode (whole help centre in the prompt)', () => {
     expect(agentCalls()).toHaveLength(0);
   });
 
-  it('small talk is the Greeting specialist: an instant welcome that says what it can help with', async () => {
+  it('small talk is the Greeting specialist: an instant opening menu (new trader or a problem) with buttons', async () => {
     agentAnswers('should not be used');
     const r = await askAgent('hello');
-    expect(r.replyText).toContain('Welcome to Apex Funding');
-    expect(r.replyText).toContain('trading rules');
+    expect(r.replyText).toBe(openingMenu('en').text);
+    expect(r.quickReplies?.map((q) => q.value)).toEqual(openingMenu('en').quickReplies.map((q) => q.value));
     expect(r.subAgent).toBe('greeting');
+    expect(agentCalls()).toHaveLength(0);
+  });
+
+  it('a Roman Urdu greeting gets the menu in Roman Urdu', async () => {
+    agentAnswers('should not be used');
+    const r = await askAgent('assalam o alaikum bhai');
+    expect(r.replyText).toContain('Main aap ki kis cheez mein madad karun?');
+  });
+
+  it('the "become a funded trader" button goes to Sales with the sales rules in the prompt', async () => {
+    agentAnswers('Great that you are looking into it. How much trading experience do you have?');
+    const r = await askAgent(openingMenu('en').quickReplies[0].value);
+    expect(r).toMatchObject({ subAgent: 'pricing_offers', chatMode: 'sales', shouldHandover: false });
+    const system = agentCalls()[0][1].system;
+    expect(system).toContain('SALES MODE');
+    expect(system).toContain('Never guarantee profit');
+  });
+
+  it('a problem is support mode: no sales rules, told not to sell', async () => {
+    agentAnswers('Payouts are processed within 3 business days. [SOURCE: {{n:Payouts}}]');
+    const r = await askAgent('my payout is late, not received yet');
+    expect(r.chatMode).toBe('support');
+    const system = agentCalls()[0][1].system;
+    expect(system).toContain('SUPPORT MODE');
+    expect(system).not.toContain('SALES MODE');
+  });
+
+  it('with the Sales specialist switched off nobody is sold to', async () => {
+    agentAnswers('should not be used');
+    const r = await askAgent(openingMenu('en').quickReplies[0].value, { subAgents: { pricing_offers: { enabled: false } } });
+    expect(r.shouldHandover).toBe(true);
+    expect(agentCalls()).toHaveLength(0);
+  });
+
+  it('"something else" asks what they need without a model', async () => {
+    agentAnswers('should not be used');
+    const r = await askAgent(openingMenu('en').quickReplies[2].value);
+    expect(r.replyText).toBe(somethingElseReply('en'));
     expect(agentCalls()).toHaveLength(0);
   });
 

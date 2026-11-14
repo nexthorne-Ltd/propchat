@@ -109,25 +109,26 @@ export const SUB_AGENTS: SubAgentDefinition[] = [
   },
   {
     id: 'pricing_offers',
-    name: 'Pricing & offers',
+    // The id stays 'pricing_offers' so saved switches and instructions keep working.
+    name: 'Sales & pricing',
     icon: 'tag',
     engine: 'model',
-    summary: 'Challenge prices, account sizes, discounts and coupons, and which plan fits the trader.',
+    summary: 'Guides people who are not customers yet: how the challenge works, prices, which plan fits, honest answers to doubts. Switch it off and nobody is sold to.',
     handles: [
+      'The "Become a funded trader" option in the opening menu',
+      'How the challenge and funding work, explained simply',
       'Price of each account size and challenge type (1-step, 2-step, instant)',
-      'Current discounts, coupon codes and promotions',
-      'Reset, retake and add-on prices',
-      'Payment methods for buying a challenge',
-      'Helping the trader choose a plan',
+      'Recommending one plan that fits the trader, and why',
+      'Doubts: scam, too expensive, strict rules, failed before, another firm',
+      'Current discounts and offers, only when the help center states them',
     ],
-    examples: ['10k challenge kitne ka hai?', 'any discount code?', '2 step vs 1 step which is better', 'can I pay with crypto?'],
-    handsOverWhen: 'A payment failed, was charged twice, or a coupon will not apply to their checkout.',
+    examples: ['funded trader banna hai', '10k challenge kitne ka hai?', '2 step vs 1 step which is better', 'is this legit?'],
+    handsOverWhen: 'A fact the help center does not have, an angry prospect, a payment that failed or was charged twice.',
     canDisable: true,
     brief: [
-      'You handle prices, plans and offers. Give the exact price for the size and type asked; if they did not say which, list the options briefly (size → price) and ask which they want.',
+      'You handle prices, plans, offers and people deciding whether to buy. Give the exact price for the size and type asked; if they did not say which, list the options briefly (size → price) and ask which they want.',
       'Mention a current offer or coupon only if the HELP CENTER states it, with its conditions and end date if given. Never invent a discount.',
-      'Helping someone choose: ask at most one question (budget or experience), then recommend from the plan differences the HELP CENTER states.',
-      'End with a short, friendly next step (where to buy) without pressure.',
+      'A trader who already holds an account asking about prices gets the facts only, without a pitch.',
     ].join('\n'),
     articleMatch: /\b(price|pricing|plans?|cost|fees?|challenge|account sizes?|offers?|discounts?|coupons?|promo|sale|payment methods?|checkout|buy|purchase|reset|retake|add-?ons?)\b/i,
     topic: [
@@ -135,6 +136,10 @@ export const SUB_AGENTS: SubAgentDefinition[] = [
       /\b(discount|coupon|promo(?:\s*code)?|code|offer|offers|sale|deal|black\s*friday|off\b|cashback)\b/i,
       /\b(buy|purchase|order\s+a|kharid|lena\s+hai|checkout|payment\s+method|pay\s+with|crypto|card\s+se|jazzcash|easypaisa)\b/i,
       /\b(which\s+(?:plan|account|challenge)|best\s+(?:plan|account|challenge)|1[\s-]?step|2[\s-]?step|one[\s-]step|two[\s-]step|instant\s+(?:funding|account))\b/i,
+      // A prospect: wants to get funded, or asks whether to trust the firm.
+      // A bare "how does it work?" stays General (it may be about anything);
+      // sales.ts still answers it in sales mode, with the sales rules on top.
+      /\b(funded\s+trader\s+ban\w*|become\s+(?:a\s+)?funded|get\s+funded|is\s+(?:it|this|you|your\s+firm)\s+(?:legit|real|a\s+scam|trustworthy|worth\s+it))\b/i,
     ],
   },
   {

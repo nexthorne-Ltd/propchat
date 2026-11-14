@@ -288,7 +288,6 @@ const ConversationItem = memo(function ConversationItem({
     isUrgent ||
     isHigh ||
     (isWaiting && !isResolved) ||
-    (isBotGreeting && !isResolved && !isWaiting) ||
     isResolved ||
     tags.length > 0 ||
     showLang ||
@@ -488,13 +487,6 @@ const ConversationItem = memo(function ConversationItem({
                 <span className={cn(chip, 'bg-warn-soft text-warn border-warn-line')}>
                   <span className="w-1.5 h-1.5 rounded-full bg-warn animate-pulse" />
                   Waiting
-                </span>
-              )}
-
-              {isBotGreeting && !isResolved && !isWaiting && (
-                <span className={cn(chip, 'bg-accent-soft text-accent border-accent-line font-medium')}>
-                  <Bot className="w-3 h-3" />
-                  Bot greeting
                 </span>
               )}
 

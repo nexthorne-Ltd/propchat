@@ -7,6 +7,7 @@ import { normalizePrechat, prechatAsksNothing, type PrechatConfig, type PrechatF
 import { isChatFirstDesign, isHexColor, isWidgetColorMode, isWidgetDesign, launcherIcon, type WidgetColorMode, type WidgetDesignId } from '../../src/lib/widget/launcher-icons';
 import { formatMarkdownToHtml } from '../../src/lib/widget/article-markdown';
 import { DEFAULT_BRAND_COLOR } from '../../src/lib/brand';
+import { OPENING_MENU, OPENING_MENU_QUESTION } from '../../src/lib/ai/opening-menu';
 
 // The bare domain answers every request with a 308 to www. A script follows
 // it, but the CORS preflight of an API call does not, so embeds loading
@@ -6368,9 +6369,12 @@ class ZentryWidget {
         .trim() || (this.config.businessName || this.config.title || 'our company');
 
       const customWelcome = this.config.welcomeText?.trim();
-      const welcomeContent = customWelcome
+      const welcomeLine = customWelcome
         ? customWelcome.charAt(0).toUpperCase() + customWelcome.slice(1)
         : `Welcome to ${rawName}`;
+      // The opening menu (src/lib/ai/sales.ts): the bot reads a button, or a
+      // typed "1", "2" or "3", from these exact lines.
+      const welcomeContent = `${welcomeLine} 👋\n${OPENING_MENU_QUESTION}\n${OPENING_MENU.map((o, i) => `${i + 1}. ${o.value}`).join('\n')}`;
       let savedMsg: MessageItem | null = null;
       if (this.legacyData) {
         const res = await this.supabase
@@ -6599,7 +6603,12 @@ class ZentryWidget {
       // carries them, and only until the visitor has replied (they disappear
       // automatically once the user sends anything after this message).
       if (!isVisitor) {
-        const quickReplies = (msg.metadata?.quick_replies as Array<{ label: string; value?: string }> | null | undefined);
+        let quickReplies = (msg.metadata?.quick_replies as Array<{ label: string; value?: string }> | null | undefined);
+        // The welcome is written by fn_widget_welcome, which stores no
+        // buttons: an opening-menu welcome gets them here.
+        if (!quickReplies?.length && msg.metadata?.is_welcome && msg.content?.includes(`\n1. ${OPENING_MENU[0].value}`)) {
+          quickReplies = OPENING_MENU;
+        }
         if (quickReplies && quickReplies.length > 0) {
           // Hide chips once the visitor has sent any message after this one.
           const hasVisitorReplyAfter = this.messages.some(

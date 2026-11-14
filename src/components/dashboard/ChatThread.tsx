@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
   AtSign,
+  PhoneCall,
   Bot,
   Check,
   CheckCircle2,
@@ -23,7 +24,6 @@ import {
   Send,
   Sparkles,
   Star,
-  Tag,
   X,
   Zap,
   ArrowLeft,
@@ -109,6 +109,12 @@ interface ChatThreadProps {
    * so the visitor never gets answers from both.
    */
   aiAnswering?: boolean;
+  /** The bot handed this chat over and no person has taken it yet. */
+  waitingForPerson?: boolean;
+  /** This chat's handover is ringing on the agent's screen. */
+  ringing?: boolean;
+  /** Take the chat: bot off, assigned if nobody has it, the customer told a person is here. */
+  onConnect?: () => Promise<void>;
   loading?: boolean;
   onBack?: () => void;
   onToggleDetailsSidebar?: () => void;
@@ -128,7 +134,7 @@ interface CannedItem {
   content: string;
 }
 
-type ThreadAction = "" | "snooze" | "merge" | "auto-assign" | "ai";
+type ThreadAction = "" | "snooze" | "merge" | "auto-assign" | "ai" | "pending" | "open";
 
 const PRESET_TAGS = ['VIP', 'Billing', 'Bug', 'Sales lead', 'Feature request', 'Urgent'];
 
@@ -146,12 +152,6 @@ const PRIORITY_OPTIONS: { value: ConversationPriority; label: string; dot: strin
   { value: 'normal', label: 'Normal', dot: 'var(--ds-accent)' },
   { value: 'high', label: 'High', dot: 'var(--ds-warn)' },
   { value: 'urgent', label: 'Urgent', dot: 'var(--ds-danger)' },
-];
-
-const STATUS_OPTIONS: { value: ConversationStatus; label: string; dot: string; description?: string }[] = [
-  { value: 'open', label: 'Open', dot: 'var(--ds-success)', description: 'Needs agent response' },
-  { value: 'pending', label: 'Waiting', dot: 'var(--ds-warn)', description: 'Waiting on customer reply' },
-  { value: 'closed', label: 'Resolved', dot: 'var(--ds-line-3)', description: 'Ticket closed & resolved' },
 ];
 
 /** Groups consecutive messages into calendar days for the date separators. */
@@ -186,6 +186,9 @@ export function ChatThread({
   onUpdateTags,
   onToggleAiMode,
   aiAnswering = false,
+  waitingForPerson = false,
+  ringing = false,
+  onConnect,
   loading = false,
   onBack,
   onToggleDetailsSidebar,
@@ -203,6 +206,16 @@ export function ChatThread({
   /** Briefly tinted after a quote is clicked, so the eye finds the original. */
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  /**
+   * Hand the chat back to the bot once this reply is sent. A person's reply
+   * pauses the bot (the database's rule), so "turn the bot on, then write the
+   * closing line" left it off again; this sends first and turns it on after.
+   */
+  const [handBackFor, setHandBackFor] = useState<string | null>(null);
+  const handBack = handBackFor === conversation.id;
+  const setHandBack = (on: boolean) => setHandBackFor(on ? conversation.id : null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [noteErrorToast, setNoteErrorToast] = useState<string | null>(null);
   const [chosenComposerMode, setComposerMode] = useState<'reply' | 'internal'>('reply');
@@ -1063,6 +1076,16 @@ export function ChatThread({
     });
   }, [displayMessages]);
 
+  /** Every bot switch in this screen goes through here, so a refusal is shown, not lost. */
+  const toggleBot = async (mode: 'autopilot' | 'disabled') => {
+    if (!onToggleAiMode) return;
+    try {
+      await onToggleAiMode(mode);
+    } catch (err) {
+      setNoteErrorToast(errorMessage(err, 'Could not change the bot. Try again.'));
+    }
+  };
+
   const handleSend = async () => {
     if ((!inputText.trim() && !pendingAttachment) || isSending || isTranslating) return;
     const text = inputText.trim();
@@ -1238,6 +1261,10 @@ export function ChatThread({
         translationMetadata
       );
       setReplyTo(null);
+      if (!isInternal && handBack) {
+        setHandBack(false);
+        await toggleBot('autopilot');
+      }
       // The conversation's language is kept by the server as visitor messages
       // are translated. Writing channel_metadata from here would overwrite it
       // with this component's stale copy — including the last_human_reply_at
@@ -1684,9 +1711,6 @@ export function ChatThread({
               <Linkified text={msg.content} />
             </p>
           )}
-          <p className="mt-2 text-2xs text-warn font-medium">
-            Only your team sees this. It is never sent to the visitor.
-          </p>
         </div>
       );
       return;
@@ -1805,12 +1829,8 @@ export function ChatThread({
                 : 'rounded-2xl rounded-bl-xs bg-surface-2 border border-line text-ink font-normal'
             )}
           >
-            {isAI && (
-              <span className="flex items-center gap-1 mb-1 text-2xs font-bold uppercase tracking-wide text-accent">
-                {isGreeting ? <Bot className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-                {isGreeting ? 'Bot Greeting' : 'AI'}
-              </span>
-            )}
+            {/* No "AI" / "Bot greeting" heading: the bubble's colour and the
+                "Bot · time" line under it already say who wrote it. */}
             {msg.attachment_url && (
               <div className="mb-2">
                 {isImageAttachment(msg.attachment_url) ? (
@@ -1940,41 +1960,41 @@ export function ChatThread({
                     )}
                     {/* Bot Rating: Good / Wrong */}
                     <div className="mt-2 pt-1.5 border-t border-accent-line/30 flex items-center justify-between text-2xs text-ink-3">
-                      <span className="text-2xs font-medium text-accent flex items-center gap-1">
-                        <Bot className="w-3 h-3" />
-                        <span>
-                          AI Reply
-                          {isSubAgentId(msg.metadata?.sub_agent) && ` · ${SUB_AGENT_BY_ID[msg.metadata.sub_agent].name}`}
-                        </span>
+                      {/* Which specialist answered (sub-agents.ts); the rating
+                          is two small icons, labelled for screen readers. */}
+                      <span className="text-2xs text-ink-3 truncate">
+                        {isSubAgentId(msg.metadata?.sub_agent) ? SUB_AGENT_BY_ID[msg.metadata.sub_agent].name : ''}
                       </span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5 shrink-0">
                         <button
                           type="button"
                           onClick={() => handleRateBot(msg.id, 'good')}
+                          aria-label="Good answer"
+                          aria-pressed={ratedMessages[msg.id] === 'good'}
                           className={cn(
-                            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs transition-colors cursor-pointer",
+                            "w-6 h-6 grid place-items-center rounded transition-colors cursor-pointer",
                             ratedMessages[msg.id] === 'good'
-                              ? "bg-success-soft text-success font-semibold border border-success-line"
-                              : "hover:bg-surface text-ink-3 hover:text-ink"
+                              ? "bg-success-soft text-success"
+                              : "text-ink-3 hover:bg-surface hover:text-ink"
                           )}
-                          title="Mark as good / helpful"
+                          title="Good answer"
                         >
                           <ThumbsUp className="w-3 h-3" />
-                          <span>Good</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleRateBot(msg.id, 'wrong')}
+                          aria-label="Wrong answer"
+                          aria-pressed={ratedMessages[msg.id] === 'wrong'}
                           className={cn(
-                            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs transition-colors cursor-pointer",
+                            "w-6 h-6 grid place-items-center rounded transition-colors cursor-pointer",
                             ratedMessages[msg.id] === 'wrong'
-                              ? "bg-danger-soft text-danger font-semibold border border-danger-line"
-                              : "hover:bg-surface text-ink-3 hover:text-danger"
+                              ? "bg-danger-soft text-danger"
+                              : "text-ink-3 hover:bg-surface hover:text-danger"
                           )}
-                          title="Mark as wrong (logs to Unanswered Questions for training)"
+                          title="Wrong answer (added to Unanswered so the bot can learn it)"
                         >
                           <ThumbsDown className="w-3 h-3" />
-                          <span>Wrong</span>
                         </button>
                       </div>
                     </div>
@@ -2251,7 +2271,9 @@ export function ChatThread({
                   </span>
                 </>
               )}
-              {visitor?.email && (
+              {/* The email is in the customer panel, one click away; here it
+                  only pushed the name and the actions together. */}
+              {visitor?.email && !isDetailsSidebarOpen && (
                 <>
                   <span>·</span>
                   <a
@@ -2267,36 +2289,9 @@ export function ChatThread({
         </div>
 
         {/* Actions strip in header: keep in one row without shifting or wrapping */}
+        {/* Status lives on the ticket row below (one place, not two); Resolve
+            and "Waiting on customer" in More cover the chat's own status. */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-auto flex-nowrap">
-          <Menu<ConversationStatus>
-            value={conversation.status}
-            options={STATUS_OPTIONS}
-            label="Status"
-            className="shrink-0"
-            onChange={(v) => onUpdateStatus(v)}
-            trigger={({ active, open }) => (
-              <span
-                className={cn(
-                  'btn btn-sm btn-secondary gap-1.5 shrink-0 px-2 sm:px-2.5 cursor-pointer',
-                  open && 'bg-surface-3'
-                )}
-                title={`Status: ${active?.label ?? ''} (Click to change status)`}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full shrink-0"
-                  style={{ background: active?.dot }}
-                />
-                <span className="text-xs font-medium text-ink">{active?.label}</span>
-                <ChevronDown
-                  className={cn(
-                    'w-3.5 h-3.5 text-ink-3 transition-transform duration-150',
-                    open && 'rotate-180'
-                  )}
-                />
-              </span>
-            )}
-          />
-
           {onAskTeam && (
             <button
               type="button"
@@ -2353,6 +2348,17 @@ export function ChatThread({
                     },
                   ]
                 : []),
+              ...(conversation.status !== "closed"
+                ? [
+                    conversation.status === "pending"
+                      ? { value: "open" as ThreadAction, label: "Mark as open", description: "It needs a reply from the team" }
+                      : {
+                          value: "pending" as ThreadAction,
+                          label: "Mark as waiting on customer",
+                          description: "You replied and are waiting for them",
+                        },
+                  ]
+                : []),
               {
                 value: "snooze",
                 label:
@@ -2371,13 +2377,12 @@ export function ChatThread({
               },
             ]}
             onChange={(action) => {
-              if (action === "snooze") setShowSnoozeModal(true);
+              if (action === "pending" || action === "open") void onUpdateStatus(action);
+              else if (action === "snooze") setShowSnoozeModal(true);
               else if (action === "merge") handleOpenMergeModal();
               else if (action === "auto-assign") handleAutoAssign();
               else if (action === "ai")
-                onToggleAiMode?.(
-                  conversation.ai_mode === "disabled" ? "autopilot" : "disabled"
-                );
+                void toggleBot(conversation.ai_mode === "disabled" ? "autopilot" : "disabled");
             }}
             trigger={({ open }) => (
               <span
@@ -2425,11 +2430,29 @@ export function ChatThread({
         />
       )}
 
-      {/* ── Compact Metadata Toolbar: single line ── */}
-      <div className="shrink-0 px-3 sm:px-4 py-1 flex items-center gap-1.5 border-b border-line bg-surface-2/60 min-h-[32px] overflow-x-auto no-scrollbar">
-        {/* Language selector chip moved from header to metadata row */}
+      {/* ── Compact Metadata Toolbar: single line ──
+          Who has it, how urgent, whether the bot answers, tags. The language
+          is a correction tool, so it sits last. */}
+      <div className="shrink-0 px-3 sm:px-4 py-1 flex items-center gap-1.5 border-b border-line bg-surface min-h-[34px] overflow-x-auto no-scrollbar">
+        <Menu<string>
+          value={conversation.assigned_agent_id || conversation.agent_id || ''}
+          options={assignOptions}
+          label="Assignee"
+          align="start"
+          className="shrink-0"
+          onChange={(v) => onAssignAgent(v || null)}
+        />
+
+        <Menu<ConversationPriority>
+          value={currentPriority}
+          options={PRIORITY_OPTIONS}
+          label="Priority"
+          align="start"
+          className="shrink-0"
+          onChange={(v) => onUpdatePriority?.(v)}
+        />
         <label
-          className="h-6 px-2 rounded-md bg-surface border border-line hover:border-line-3 text-2xs font-semibold text-ink flex items-center gap-1 shrink-0 cursor-pointer relative shadow-2xs transition-colors"
+          className="order-last ml-auto h-6 px-2 rounded-md text-2xs font-semibold text-ink-3 hover:text-ink hover:bg-surface-3 flex items-center gap-1 shrink-0 cursor-pointer relative transition-colors"
           title={
             languageOverride
               ? `Language set manually: ${getLanguageInfo(detectedVisitorLang).name}`
@@ -2458,26 +2481,6 @@ export function ChatThread({
           </select>
         </label>
 
-        <Menu<ConversationPriority>
-          value={currentPriority}
-          options={PRIORITY_OPTIONS}
-          label="Priority"
-          align="start"
-          className="shrink-0"
-          onChange={(v) => onUpdatePriority?.(v)}
-        />
-
-        <div className="inline-flex items-center shrink-0">
-          <Menu<string>
-            value={conversation.agent_id || ''}
-            options={assignOptions}
-            label="Assignee"
-            align="start"
-            className="shrink-0"
-            onChange={(v) => onAssignAgent(v || null)}
-          />
-        </div>
-
         {/* Interactive AI Autopilot Toggle Pill */}
         {onToggleAiMode && (() => {
           const isFullAutopilot = conversation.ai_mode === 'autopilot';
@@ -2490,11 +2493,7 @@ export function ChatThread({
           return (
             <button
               type="button"
-              onClick={() =>
-                onToggleAiMode(
-                  isFullAutopilot ? 'disabled' : 'autopilot'
-                )
-              }
+              onClick={() => void toggleBot(isFullAutopilot ? 'disabled' : 'autopilot')}
               className={cn(
                 'shrink-0 h-6 px-2 rounded-md transition-all cursor-pointer inline-flex items-center gap-1 text-2xs',
                 isFullAutopilot
@@ -2507,23 +2506,23 @@ export function ChatThread({
               )}
               title={
                 isFullAutopilot
-                  ? 'AI Autopilot is ON for this conversation (click to pause / take over)'
+                  ? 'The bot answers this chat. Click to pause it and reply yourself.'
                   : isAiDisabled
-                  ? 'AI is paused (Human Agent mode active). Click to turn AI Autopilot back ON'
+                  ? 'The bot is paused; a person is handling this chat. Click to let the bot answer again.'
                   : isWorkspaceFirstReplyOn
-                  ? 'Workspace AI first reply is ON (click to turn on full Autopilot)'
-                  : 'AI Autopilot is OFF (click to activate)'
+                  ? 'The bot gives the first reply. Click to let it answer the whole chat.'
+                  : 'The bot is off. Click to let it answer.'
               }
             >
               <Bot className={cn('w-3 h-3', isFullAutopilot ? 'text-accent-ink' : isAiDisabled ? 'text-warn' : isWorkspaceFirstReplyOn ? 'text-accent' : 'text-ink-3')} />
               <span>
                 {isFullAutopilot
-                  ? 'Autopilot'
+                  ? 'Bot answering'
                   : isAiDisabled
-                  ? 'AI Paused (Turn On)'
+                  ? 'Bot paused'
                   : isWorkspaceFirstReplyOn
-                  ? 'AI reply on'
-                  : 'Autopilot Off'}
+                  ? 'Bot first reply'
+                  : 'Bot off'}
               </span>
             </button>
           );
@@ -2537,8 +2536,6 @@ export function ChatThread({
         )}
 
         <span className="w-px h-3.5 bg-line-2 mx-0.5 shrink-0" />
-
-        <Tag className="w-3 h-3 text-ink-3 shrink-0" />
 
         {conversation.tags?.length ? (
           conversation.tags.map((t) => (
@@ -2923,12 +2920,8 @@ export function ChatThread({
             </div>
 
             <div className="text-2xs truncate">
-              {isInternalMode ? (
+              {isInternalMode && (
                 <span className="hidden sm:inline text-warn font-medium">Only your team sees notes</span>
-              ) : (
-                <span className="hidden sm:inline text-ink-3">
-                  Replying as <strong className="text-ink-2 font-medium">{currentAgent?.name || 'Agent'}</strong>
-                </span>
               )}
             </div>
           </div>
@@ -2993,16 +2986,55 @@ export function ChatThread({
             </div>
           )}
 
-          {replyLocked && (
+          {/* A customer the bot handed over: one button takes the chat and stops the ring. */}
+          {waitingForPerson && onConnect && !isLightAgent && conversation.status !== 'closed' && (
+            <div
+              role="status"
+              className="px-3 py-2 flex flex-wrap items-center gap-2 border-b border-warn-line bg-warn-soft text-xs"
+            >
+              <PhoneCall
+                className={cn('w-4 h-4 text-warn shrink-0', ringing && 'animate-pulse')}
+                aria-hidden="true"
+              />
+              <span className="flex-1 min-w-[160px] text-ink">
+                <span className="font-bold text-warn">
+                  {conversation.visitor?.name || 'The customer'} is waiting for a person.
+                </span>{' '}
+                Connect to take this chat: the bot stops and the customer is told you are here.
+                {connectError && <span className="block text-danger mt-0.5">{connectError}</span>}
+              </span>
+              <button
+                type="button"
+                disabled={connecting}
+                onClick={async () => {
+                  setConnecting(true);
+                  setConnectError(null);
+                  try {
+                    await onConnect();
+                  } catch (err) {
+                    setConnectError(errorMessage(err, 'Could not connect. Try again.'));
+                  } finally {
+                    setConnecting(false);
+                  }
+                }}
+                className="h-7 px-3 rounded-md text-xs font-bold bg-accent hover:bg-accent-hover text-accent-ink shrink-0 inline-flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-60 disabled:cursor-wait"
+              >
+                <PhoneCall className="w-3.5 h-3.5" aria-hidden="true" />
+                {connecting ? 'Connecting…' : 'Connect'}
+              </button>
+            </div>
+          )}
+
+          {replyLocked && !(waitingForPerson && onConnect) && (
             <div className="px-3 py-2 flex items-center gap-2 border-b border-line/40 bg-accent/10 text-xs text-ink">
               <Bot className="w-3.5 h-3.5 text-accent shrink-0" />
               <span className="flex-1 min-w-0">
-                AI assistant is replying to this conversation. Take over to reply yourself, or leave a note.
+                The bot is answering this chat.
               </span>
               {onToggleAiMode && (
                 <button
                   type="button"
-                  onClick={() => onToggleAiMode('disabled')}
+                  onClick={() => void toggleBot('disabled')}
                   className="h-6 px-2.5 rounded-md text-2xs font-bold bg-accent hover:bg-accent-hover text-accent-ink shrink-0 cursor-pointer"
                 >
                   Take over
@@ -3011,22 +3043,37 @@ export function ChatThread({
             </div>
           )}
 
-          {!replyLocked && !isInternalMode && conversation.ai_mode === 'disabled' && onToggleAiMode && (
-            <div className="px-3 py-1.5 flex items-center gap-2 border-y border-warn-line bg-warn-soft text-xs">
-              <span className="w-2 h-2 rounded-full bg-warn shrink-0" aria-hidden="true" />
-              <span className="flex-1 min-w-0 text-2xs font-medium text-warn">
-                The bot is paused while a person handles this conversation.
-              </span>
-              <button
-                type="button"
-                onClick={() => onToggleAiMode('autopilot')}
-                className="h-6 px-2.5 rounded-md text-2xs font-bold bg-accent hover:bg-accent-hover text-accent-ink shrink-0 inline-flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
-              >
-                <Bot className="w-3 h-3" />
-                <span>Turn the bot on</span>
-              </button>
-            </div>
-          )}
+          {/* A person has this chat. Two ways back to the bot: hand it back
+              with this reply (sent first, so the reply cannot pause it
+              again), or switch it on now without writing anything. */}
+          {!replyLocked &&
+            !isInternalMode &&
+            conversation.ai_mode === 'disabled' &&
+            onToggleAiMode &&
+            !(waitingForPerson && onConnect) &&
+            !isLightAgent && (
+              <div className="px-3 py-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-surface-2 text-2xs">
+                <span className="flex-1 min-w-[140px] text-ink-2">You are handling this chat. The bot is paused.</span>
+                <label className="inline-flex items-center gap-1.5 text-ink-2 cursor-pointer select-none shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={handBack}
+                    onChange={(e) => setHandBack(e.target.checked)}
+                    className="accent-[var(--ds-accent)] w-3.5 h-3.5"
+                  />
+                  Hand back to the bot after my reply
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void toggleBot('autopilot')}
+                  title="The bot answers the customer's next message. Replying yourself after this pauses it again."
+                  className="h-6 px-2 rounded-md font-semibold text-accent hover:bg-accent-soft shrink-0 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Bot className="w-3 h-3" aria-hidden="true" />
+                  Turn on now
+                </button>
+              </div>
+            )}
 
           {/* Textarea */}
           <div className="p-3">
@@ -3042,7 +3089,7 @@ export function ChatThread({
                 isInternalMode
                   ? 'Write a note your team will see… (@ to mention)'
                   : replyLocked
-                  ? 'AI autopilot is on — take over to reply'
+                  ? 'Take over to reply, or switch to Internal note'
                   : pendingAttachment
                   ? 'Add a caption for this picture (optional)…'
                   : `Reply to ${displayName}…`
@@ -3409,6 +3456,11 @@ export function ChatThread({
                     <Globe className="w-3 h-3" />
                     <span className="hidden @min-[520px]:inline">Translate &amp; Send</span>
                     <span className="@min-[520px]:hidden">Send</span>
+                  </>
+                ) : handBack && conversation.ai_mode === 'disabled' ? (
+                  <>
+                    <Bot className="w-3 h-3" />
+                    <span>Send &amp; hand back</span>
                   </>
                 ) : (
                   <>

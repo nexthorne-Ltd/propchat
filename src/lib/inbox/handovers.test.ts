@@ -1,12 +1,59 @@
 import { describe, expect, it } from 'vitest';
 import {
   friendlyReason,
+  handoverHandled,
   handoverState,
+  pendingHandoverIn,
   isWaitingForPerson,
   parseHandoverNote,
   sortHandovers,
   type HandoverItem,
 } from './handovers';
+
+describe('handoverHandled (the handover ring stops)', () => {
+  const since = '2026-11-14T10:00:00.000Z';
+  const waiting = {
+    status: 'open' as const,
+    ai_paused_reason: null,
+    ai_needs_attention_at: since,
+    channel_metadata: {},
+    updated_at: since,
+  };
+
+  it('keeps ringing while the customer waits', () => {
+    expect(handoverHandled(waiting, since)).toBe(false);
+  });
+
+  it('stops when a person replies after the handover', () => {
+    expect(handoverHandled({ ...waiting, channel_metadata: { last_human_reply_at: '2026-11-14T10:01:00.000Z' } }, since)).toBe(true);
+  });
+
+  it('does not stop for a reply from before the handover', () => {
+    expect(handoverHandled({ ...waiting, channel_metadata: { last_human_reply_at: '2026-11-14T09:00:00.000Z' } }, since)).toBe(false);
+  });
+
+  it('stops on Connect or Take over', () => {
+    expect(
+      handoverHandled(
+        { ...waiting, ai_paused_reason: 'agent_paused', ai_needs_attention_at: null, updated_at: '2026-11-14T10:02:00.000Z' },
+        since
+      )
+    ).toBe(true);
+  });
+
+  it('does not stop for an older takeover row that arrives late', () => {
+    expect(
+      handoverHandled(
+        { ...waiting, ai_paused_reason: 'agent_paused', ai_needs_attention_at: null, updated_at: '2026-11-14T09:30:00.000Z' },
+        since
+      )
+    ).toBe(false);
+  });
+
+  it('stops when the chat is closed', () => {
+    expect(handoverHandled({ ...waiting, status: 'closed' }, since)).toBe(true);
+  });
+});
 
 describe('parseHandoverNote', () => {
   it('reads the note buildHandoverSummary writes', () => {
@@ -102,5 +149,29 @@ describe('sortHandovers', () => {
       item('normal-new', 'waiting', 'normal', '2026-10-24T10:00:00Z'),
     ]);
     expect(sorted.map((i) => i.id)).toEqual(['urgent', 'normal-old', 'normal-new', 'done']);
+  });
+});
+
+describe('pendingHandoverIn (the Connect banner)', () => {
+  const note = { created_at: '2026-11-14T10:00:00Z', sender_type: 'agent', sender_id: null, is_internal: true, metadata: { is_handover: true } };
+  const bot = { created_at: '2026-11-14T10:01:00Z', sender_type: 'ai', sender_id: null, is_internal: false, metadata: {} };
+  const person = { created_at: '2026-11-14T10:02:00Z', sender_type: 'agent', sender_id: 'agent-1', is_internal: false, metadata: {} };
+  const visitor = { created_at: '2026-11-14T09:59:00Z', sender_type: 'visitor', sender_id: null, is_internal: false, metadata: {} };
+
+  it('is waiting after a handover, even if the bot spoke since', () => {
+    expect(pendingHandoverIn([visitor, note, bot])).toBe(true);
+  });
+
+  it('is not waiting once a person replied after it', () => {
+    expect(pendingHandoverIn([person, visitor, note, bot])).toBe(false);
+  });
+
+  it('is not waiting without a handover', () => {
+    expect(pendingHandoverIn([visitor, bot])).toBe(false);
+  });
+
+  it('ignores the widget welcome', () => {
+    const welcome = { ...person, sender_id: 'agent-1', metadata: { is_welcome: true } };
+    expect(pendingHandoverIn([note, welcome])).toBe(true);
   });
 });
