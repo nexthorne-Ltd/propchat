@@ -19,6 +19,7 @@ import { updateFaviconBadge } from '@/lib/favicon';
 import { SetupChecklist } from '@/components/dashboard/SetupChecklist';
 import { isVisitorOnline } from '@/lib/tracking/visitor-tracking';
 import { handoverHandled, isWaitingForPerson, pendingHandoverIn } from '@/lib/inbox/handovers';
+import { buildWelcomeMessage } from '@/lib/ai/opening-menu';
 import { userError } from '@/lib/errors/user-error';
 import type { SectionId } from '@/components/dashboard/SettingsHub';
 import { BarChart2, BookOpen, Inbox, MessagesSquare, Radio, Settings, Smartphone, ShieldAlert, LogOut, Sparkles, Ticket, HelpCircle, Hand } from 'lucide-react';
@@ -1717,6 +1718,8 @@ export default function DashboardPage() {
 
   const handleOpenConversationForVisitor = async (visitorId: string) => {
     let existing = conversations.find((c) => c.visitor_id === visitorId);
+    let isEmpty = false;
+
     if (!existing) {
       const { data } = await supabase
         .from('conversations')
@@ -1730,7 +1733,45 @@ export default function DashboardPage() {
 
       if (data) {
         existing = data as Conversation;
+        isEmpty = true;
         setConversations((prev) => [existing!, ...prev]);
+      }
+    } else {
+      const { count } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('conversation_id', existing.id);
+      isEmpty = (count ?? 0) === 0;
+    }
+
+    if (existing && isEmpty) {
+      const welcomeContent = buildWelcomeMessage({
+        businessName: currentWorkspace?.name,
+        title: currentWorkspace?.greeting_title,
+        welcomeText: currentWorkspace?.greeting_message,
+      });
+
+      const { data: welcomeMsg, error: welcomeErr } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: existing.id,
+          sender_type: 'agent',
+          sender_id: null,
+          content: welcomeContent,
+          is_internal: false,
+          metadata: { is_welcome: true },
+        })
+        .select()
+        .single();
+
+      if (welcomeErr) {
+        console.error('[Start Chat Welcome Error]:', welcomeErr);
+      } else if (welcomeMsg) {
+        const msg = welcomeMsg as Message;
+        messagesCacheRef.current[existing.id] = [msg];
+        setConversations((prev) =>
+          prev.map((c) => (c.id === existing!.id ? { ...c, latest_message: msg } : c))
+        );
       }
     }
 

@@ -15,3 +15,30 @@ export const OPENING_MENU: Array<{ label: string; value: string }> = [
   { label: '🛠️ Account, payout or rules issue', value: 'I have an issue with my account, payout or rules' },
   { label: '💬 Something else', value: 'Something else' },
 ];
+
+export interface WelcomeMessageOptions {
+  businessName?: string | null;
+  title?: string | null;
+  welcomeText?: string | null;
+}
+
+/**
+ * Builds the exact opening welcome + menu message used when a conversation
+ * starts (either by a visitor in the widget or by an agent from Live Visitors).
+ */
+export function buildWelcomeMessage({ businessName, title, welcomeText }: WelcomeMessageOptions): string {
+  const fallback = businessName || title || 'our company';
+  const rawName = fallback
+    .replace(/^Welcome to\s+/i, '')
+    .replace(/\s*Support\s*$/i, '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}️]+\s*$/u, '')
+    .replace(/^the\s+/i, '')
+    .trim() || fallback;
+
+  const customWelcome = welcomeText?.trim();
+  const welcomeLine = customWelcome
+    ? customWelcome.charAt(0).toUpperCase() + customWelcome.slice(1)
+    : `Welcome to ${rawName}`;
+
+  return `${welcomeLine} 👋\n${OPENING_MENU_QUESTION}\n${OPENING_MENU.map((o, i) => `${i + 1}. ${o.value}`).join('\n')}`;
+}
