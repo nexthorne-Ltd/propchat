@@ -169,11 +169,12 @@ export function formatMemoryForPrompt(memory: ExtractedMemory): string | null {
 export function getMicroAcknowledgmentGuideline(lang: ReplyLanguage): string {
   if (lang === 'roman_ur') {
     return `# MICRO-ACKNOWLEDGMENTS & HUMAN TONE (ROMAN URDU)
-- Shuru mein hamesha ek chota, natural human acknowledgment dein jese ek real friendly agent chat karta hai:
+- Seedhe sawal (jaise "MT5 hai?") ka seedha jawab dein ("Ji haan, MT5 available hai."), koi lambi tamheed nahi.
+- Zaroorat ho to shuru mein ek chota, natural acknowledgment de sakte hain jese ek real friendly agent chat karta hai:
   * General sawal: "Acha samajh gaya,", "Ji bilkul,", "Theek hai,", "Haanji,"
   * Agar customer pareshan ya confused ho: "Pareshan na hon, mein check kar leta hoon,", "Fikr na karein, let's sort this out,", "Samajh sakta hoon,"
 - Kabhi robotic formalities na use karein: "Dear customer", "Greetings", "As an AI language model", "Mohtaram saarim" bilkul mana hain.
-- Sidha aur dostana andaaz mein 2-3 short sentences mein jawab dein.`;
+- Sidha aur dostana andaaz mein jawab dein: aam tor par 1-2 short sentences, extra maloomat ya sawal sirf tab jab customer ne poocha ho.`;
   }
 
   if (lang === 'ur') {
@@ -183,7 +184,8 @@ export function getMicroAcknowledgmentGuideline(lang: ReplyLanguage): string {
   }
 
   return `# MICRO-ACKNOWLEDGMENTS & HUMAN TONE (ENGLISH)
-- Begin responses naturally with a brief, warm human micro-acknowledgment fitting the situation:
+- A direct question gets a direct answer with no lead-in ("Do you have MT5?" → "Yes, we offer MT5.").
+- Otherwise you may open with a brief, warm human micro-acknowledgment fitting the situation:
   * General inquiries: "Got it,", "Understood,", "Sure thing,", "I see,"
   * Issues, delays, or frustration: "Oh, sorry to hear that!", "No worries at all, let's get this sorted,", "I completely understand your concern,"
 - Strictly NEVER use robotic platitudes like:

@@ -66,6 +66,17 @@ export interface SupportAgentPromptInput {
   traderRecord?: { found: boolean; text: string; verifiedEmail: string | null } | null;
 }
 
+/**
+ * Traders read the bot like a chat with a colleague: a yes/no question that
+ * gets a paragraph back reads as a sales pitch and hides the answer. Shared by
+ * the agent prompt and the strict path so both keep the same length.
+ */
+export const BREVITY_RULES = [
+  '- Be to the point. Match the length of the reply to the question: a simple or yes/no question gets ONE short sentence ("Do you have MT5?" → "Yes, we offer MT5." and nothing more). Most replies are 1-2 sentences; use more only when they ask how to do something, ask for a list, or have a problem to solve.',
+  '- Do not add background, features, tips, offers or a follow-up question they did not ask for. No closing lines like "Let me know if you need anything else" or "Feel free to ask".',
+  '- Natural and warm, but no filler. Short bullet points only for steps or a list of rules they asked for.',
+].join('\n');
+
 export function buildSupportAgentPrompt(input: SupportAgentPromptInput): string {
   const { botName, businessName: brand, visitorName } = input;
   const custom = input.customInstructions?.trim();
@@ -83,7 +94,7 @@ export function buildSupportAgentPrompt(input: SupportAgentPromptInput): string 
     '# HOW YOU WORK',
     '1. Understand first. Customers type fast: typos, short forms, Roman Urdu, Urdu-English mix, half sentences, several questions at once. Use the earlier messages to work out what they mean. When there is a sensible reading, answer it; never reply "I don\'t understand".',
     '2. Use the whole HELP CENTER, not only the article whose title matches. Rules are often spread over several articles (account sizes in one, drawdown in another, payout in a third): put them together. Simple arithmetic from a stated rule is fine; show it.',
-    '3. Answer it yourself. You are expected to resolve almost every question on your own. Lead with the direct answer, then the one or two details that matter (conditions, exceptions, the next step). If they asked several things, answer each.',
+    '3. Answer it yourself. You are expected to resolve almost every question on your own. Lead with the direct answer and stop there unless a detail changes what they should do (a condition, an exception, the next step). If they asked several things, answer each in a line.',
     '4. Genuinely unclear (which account, which phase, which plan changes the answer)? Ask ONE short, specific question instead of guessing or handing over. If you can, give the answer for the common cases in the same reply.',
     '5. If the HELP CENTER does not say something, say so plainly and give the closest thing it does say. Do not invent it and do not hand over just because one detail is missing.',
     '6. You cannot see the customer\'s account, dashboard, trades, payments or documents, but you can still solve most problems. First help with everything you can: the rule that applies, what usually causes their situation, and the steps they can try themselves. Hand over only when nothing they can do will fix it and a person on the team must look up or change something for them: payout or refund status, a breach review, KYC or document review, a payment that went through but no account arrived, a password or account reset. A failed login, an "invalid account" error, a dashboard that does not show trades, or an email that did not arrive is NOT a handover on the first message: give the steps in rule 9. Hand over for those only when the customer says they already tried the steps or the problem continues after them, and then still answer any rule question in the same message.',
@@ -97,7 +108,7 @@ export function buildSupportAgentPrompt(input: SupportAgentPromptInput): string 
     '',
     '# STYLE',
     `- Reply in ${LANGUAGE_LABEL[input.lang]}, matching how the customer writes (casual Roman Urdu gets casual Roman Urdu).`,
-    '- Sound like a person: natural, warm, confident and to the point. Usually 2-5 sentences; short bullet points only for steps or a list of rules.',
+    BREVITY_RULES,
     '- No headings. Do not open with "Great question" or "I\'d be happy to help", do not repeat the question back, never say "as an AI". Never mention articles, a knowledge base, documents or context; say "our rules" or "our policy".',
     '- Use the exact figures, names and timeframes from the HELP CENTER. Never make up numbers, prices, dates, links or promises, and never say something has been done (a refund, a fix, an update) unless it has.',
     '- If asked directly whether you are a bot or AI, answer honestly and keep helping.',

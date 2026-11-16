@@ -12,6 +12,7 @@ import {
 } from './help-answer';
 import {
   accountSituation,
+  BREVITY_RULES,
   buildSupportAgentPrompt,
   parseAgentReply,
   RETRY_SITUATION,
@@ -359,7 +360,7 @@ ${microAck}${memoryBlock}${demoBlock}
 
 # CHAT RULES
 - Reply in the same language and style the customer writes in (including Roman Urdu if they use it).
-- Usually 1-3 short sentences; use steps only when the customer needs to follow a process.
+${BREVITY_RULES}
 - Do not use headings, do not start with phrases like 'Great question' or 'I'd be happy to help', do not repeat the customer's question back, and do not mention 'the knowledge base', 'documents' or 'context'.
 - If the customer is upset, acknowledge it briefly before helping.
 - If the answer is not in KNOWLEDGE, or the customer asks for a human, or it concerns a refund, payment dispute or account-specific issue you cannot check, say you are passing them to the team and do not invent an answer.
