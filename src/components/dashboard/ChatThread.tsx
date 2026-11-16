@@ -109,6 +109,8 @@ interface ChatThreadProps {
    * so the visitor never gets answers from both.
    */
   aiAnswering?: boolean;
+  /** True while the dashboard is actively waiting for an AI auto-reply on this thread. */
+  botReplying?: boolean;
   /** The bot handed this chat over and no person has taken it yet. */
   waitingForPerson?: boolean;
   /** This chat's handover is ringing on the agent's screen. */
@@ -186,6 +188,7 @@ export function ChatThread({
   onUpdateTags,
   onToggleAiMode,
   aiAnswering = false,
+  botReplying = false,
   waitingForPerson = false,
   ringing = false,
   onConnect,
@@ -1076,15 +1079,43 @@ export function ChatThread({
     });
   }, [displayMessages]);
 
+  const [togglingBot, setTogglingBot] = useState(false);
+
   /** Every bot switch in this screen goes through here, so a refusal is shown, not lost. */
   const toggleBot = async (mode: 'autopilot' | 'disabled') => {
-    if (!onToggleAiMode) return;
+    if (!onToggleAiMode || togglingBot) return;
+    setTogglingBot(true);
     try {
       await onToggleAiMode(mode);
     } catch (err) {
       setNoteErrorToast(errorMessage(err, 'Could not change the bot. Try again.'));
+    } finally {
+      setTogglingBot(false);
     }
   };
+
+  const lastPublicMsg = useMemo(
+    () => [...messages].reverse().find((m) => !m.is_internal && !m.metadata?.system_event) ?? null,
+    [messages]
+  );
+  const [botWaitExpired, setBotWaitExpired] = useState(false);
+  const waitingOnVisitorMsgId =
+    aiAnswering &&
+    !waitingForPerson &&
+    conversation.status !== 'closed' &&
+    lastPublicMsg?.sender_type === 'visitor' &&
+    Date.now() - Date.parse(lastPublicMsg.created_at) < 45_000
+      ? lastPublicMsg.id
+      : null;
+
+  useEffect(() => {
+    setBotWaitExpired(false);
+    if (!waitingOnVisitorMsgId) return;
+    const timer = setTimeout(() => setBotWaitExpired(true), 45_000);
+    return () => clearTimeout(timer);
+  }, [waitingOnVisitorMsgId]);
+
+  const isBotReplying = Boolean(botReplying || (waitingOnVisitorMsgId && !botWaitExpired));
 
   const handleSend = async () => {
     if ((!inputText.trim() && !pendingAttachment) || isSending || isTranslating) return;
@@ -2493,9 +2524,10 @@ export function ChatThread({
           return (
             <button
               type="button"
+              disabled={togglingBot}
               onClick={() => void toggleBot(isFullAutopilot ? 'disabled' : 'autopilot')}
               className={cn(
-                'shrink-0 h-6 px-2 rounded-md transition-all cursor-pointer inline-flex items-center gap-1 text-2xs',
+                'shrink-0 h-6 px-2 rounded-md transition-all cursor-pointer inline-flex items-center gap-1 text-2xs disabled:opacity-60 disabled:cursor-wait',
                 isFullAutopilot
                   ? 'bg-accent text-accent-ink font-semibold shadow-xs'
                   : isAiDisabled
@@ -2514,9 +2546,17 @@ export function ChatThread({
                   : 'The bot is off. Click to let it answer.'
               }
             >
-              <Bot className={cn('w-3 h-3', isFullAutopilot ? 'text-accent-ink' : isAiDisabled ? 'text-warn' : isWorkspaceFirstReplyOn ? 'text-accent' : 'text-ink-3')} />
+              {togglingBot || isBotReplying ? (
+                <Loader2 className={cn('w-3 h-3 animate-spin', isFullAutopilot ? 'text-accent-ink' : 'text-accent')} />
+              ) : (
+                <Bot className={cn('w-3 h-3', isFullAutopilot ? 'text-accent-ink' : isAiDisabled ? 'text-warn' : isWorkspaceFirstReplyOn ? 'text-accent' : 'text-ink-3')} />
+              )}
               <span>
-                {isFullAutopilot
+                {togglingBot
+                  ? 'Switching…'
+                  : isBotReplying
+                  ? 'Bot replying…'
+                  : isFullAutopilot
                   ? 'Bot answering'
                   : isAiDisabled
                   ? 'Bot paused'
@@ -2663,6 +2703,17 @@ export function ChatThread({
             </span>
           </div>
           {rendered}
+          {isBotReplying && (
+            <div className="flex items-end gap-2.5 animate-in fade-in duration-150">
+              <div className="w-7 h-7 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center shrink-0">
+                <Bot className="w-3.5 h-3.5 text-accent" />
+              </div>
+              <div className="px-3.5 py-2.5 rounded-2xl rounded-bl-sm bg-surface-2 border border-line/70 shadow-2xs inline-flex items-center gap-2 text-xs text-ink-2">
+                <Loader2 className="w-3.5 h-3.5 text-accent animate-spin shrink-0" />
+                <span className="font-medium">AI Bot is replying…</span>
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
@@ -3027,17 +3078,22 @@ export function ChatThread({
 
           {replyLocked && !(waitingForPerson && onConnect) && (
             <div className="px-3 py-2 flex items-center gap-2 border-b border-line/40 bg-accent/10 text-xs text-ink">
-              <Bot className="w-3.5 h-3.5 text-accent shrink-0" />
-              <span className="flex-1 min-w-0">
-                The bot is answering this chat.
+              {isBotReplying ? (
+                <Loader2 className="w-3.5 h-3.5 text-accent animate-spin shrink-0" />
+              ) : (
+                <Bot className="w-3.5 h-3.5 text-accent shrink-0" />
+              )}
+              <span className="flex-1 min-w-0 font-medium">
+                {isBotReplying ? 'AI Bot is replying…' : 'The bot is answering this chat.'}
               </span>
               {onToggleAiMode && (
                 <button
                   type="button"
+                  disabled={togglingBot}
                   onClick={() => void toggleBot('disabled')}
-                  className="h-6 px-2.5 rounded-md text-2xs font-bold bg-accent hover:bg-accent-hover text-accent-ink shrink-0 cursor-pointer"
+                  className="h-6 px-2.5 rounded-md text-2xs font-bold bg-accent hover:bg-accent-hover text-accent-ink shrink-0 cursor-pointer disabled:opacity-60 disabled:cursor-wait"
                 >
-                  Take over
+                  {togglingBot ? 'Pausing…' : 'Take over'}
                 </button>
               )}
             </div>
@@ -3065,12 +3121,17 @@ export function ChatThread({
                 </label>
                 <button
                   type="button"
+                  disabled={togglingBot}
                   onClick={() => void toggleBot('autopilot')}
                   title="The bot answers the customer's next message. Replying yourself after this pauses it again."
-                  className="h-6 px-2 rounded-md font-semibold text-accent hover:bg-accent-soft shrink-0 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                  className="h-6 px-2 rounded-md font-semibold text-accent hover:bg-accent-soft shrink-0 inline-flex items-center gap-1 cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-wait"
                 >
-                  <Bot className="w-3 h-3" aria-hidden="true" />
-                  Turn on now
+                  {togglingBot ? (
+                    <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Bot className="w-3 h-3" aria-hidden="true" />
+                  )}
+                  {togglingBot ? 'Turning on…' : 'Turn on now'}
                 </button>
               </div>
             )}

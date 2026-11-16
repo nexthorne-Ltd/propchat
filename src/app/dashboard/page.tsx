@@ -72,6 +72,7 @@ export default function DashboardPage() {
   const [articlesCount, setArticlesCount] = useState(0);
   const [sectionsCount, setSectionsCount] = useState(0);
   const [unansweredCount, setUnansweredCount] = useState(0);
+  const [botReplyingIds, setBotReplyingIds] = useState<Set<string>>(() => new Set());
   const [settingsInitialSection, setSettingsInitialSection] = useState<SectionId | undefined>(undefined);
   const [settingsNonce, setSettingsNonce] = useState(0);
   // What the command palette asked the tickets screen to show.
@@ -1961,6 +1962,7 @@ export default function DashboardPage() {
                   }
                 }}
                 aiAnswering={isAiAnswering(activeConversation, currentWorkspace)}
+                botReplying={botReplyingIds.has(activeConversation.id)}
                 waitingForPerson={
                   activeConversation.status !== 'closed' &&
                   (isWaitingForPerson(activeConversation) || pendingHandoverIn(messages))
@@ -1996,6 +1998,36 @@ export default function DashboardPage() {
                     );
                   }
                   setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, ...fresh } : c)));
+
+                  // When turning the bot back on, immediately answer any unanswered
+                  // visitor message instead of waiting for the visitor to write again.
+                  if (isAutopilot && fresh.workspace_id && fresh.status !== 'closed') {
+                    const cached = messagesCacheRef.current[id];
+                    const lastPublic = cached
+                      ? [...cached].reverse().find((m) => !m.is_internal && !m.metadata?.system_event)
+                      : null;
+                    const hasUnansweredVisitor = !cached || lastPublic?.sender_type === 'visitor';
+                    if (hasUnansweredVisitor) {
+                      setBotReplyingIds((prev) => new Set(prev).add(id));
+                      fetch('/api/ai/auto-respond', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          conversation_id: id,
+                          workspace_id: fresh.workspace_id,
+                        }),
+                      })
+                        .catch((err) => console.error('[Bot Resume Auto-Respond Error]:', err))
+                        .finally(() => {
+                          setBotReplyingIds((prev) => {
+                            if (!prev.has(id)) return prev;
+                            const next = new Set(prev);
+                            next.delete(id);
+                            return next;
+                          });
+                        });
+                    }
+                  }
                 }}
               />
 
