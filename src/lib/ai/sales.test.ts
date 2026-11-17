@@ -6,9 +6,58 @@ import {
   menuChoice,
   modeSituation,
   openingMenu,
+  openingOffer,
   SUPPORT_MODE_SITUATION,
 } from './sales';
 import { OPENING_MENU, OPENING_MENU_QUESTION } from './opening-menu';
+import { buildStorefront } from './trader-data/storefront';
+
+describe('openingOffer', () => {
+  const now = Date.parse('2026-11-17T12:00:00Z');
+  const store = buildStorefront(
+    [
+      { model: 'Two Step', size: 25000, price: 199 },
+      { model: 'One Step', size: 5000, price: 49 },
+    ],
+    [
+      { code: 'save10', discountPercent: 10, status: 'active', expiresAt: null },
+      { code: 'BIG30', discountPercent: 30, status: 'active', expiresAt: '2026-11-01T00:00:00Z' },
+      { code: 'OFF20', discountPercent: 20, status: 'active', expiresAt: '2026-12-01T00:00:00Z' },
+      { code: 'GONE50', discountPercent: 50, status: 'inactive', expiresAt: null },
+    ],
+    [
+      { name: 'Buy 1 Get 1', description: 'Buy any challenge, get a second one free', status: 'active', userIds: [], accountIds: [] },
+      { name: 'VIP retry', description: 'Private', status: 'active', userIds: ['u1'], accountIds: [] },
+    ],
+    now
+  );
+
+  it('picks the cheapest plan, the best live coupon and only public offers', () => {
+    expect(store?.cheapest).toEqual({ model: 'One Step', size: 5000, price: 49 });
+    expect(store?.coupon?.code).toBe('OFF20');
+    expect(store?.offers.map((o) => o.name)).toEqual(['Buy 1 Get 1']);
+  });
+
+  it('shows the offer, the code and the cheapest plan with its price after the code', () => {
+    const r = openingOffer('en', 'Ali', store)!;
+    expect(r.text).toBe(
+      [
+        'Hi Ali! 👋',
+        '🔥 Buy 1 Get 1: Buy any challenge, get a second one free',
+        '🎟️ Use code OFF20 for 20% off.',
+        '🚀 Start small: One Step $5K account for just $39.20 (with the code, was $49).',
+      ].join('\n')
+    );
+    expect(r.quickReplies.map((q) => q.value)).toEqual(OPENING_MENU.map((o) => o.value));
+    expect(menuChoice(r.quickReplies[1].value)).toBe(2);
+  });
+
+  it('speaks Roman Urdu and falls back to the menu when nothing is on sale', () => {
+    expect(openingOffer('roman_ur', null, store)!.text).toContain('Code OFF20 use karein aur 20% off paayein.');
+    expect(openingOffer('en', null, null)).toBeNull();
+    expect(buildStorefront([], [], [])).toBeNull();
+  });
+});
 
 const menuEn = openingMenu('en');
 const menuUr = openingMenu('roman_ur');

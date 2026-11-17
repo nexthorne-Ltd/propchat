@@ -39,6 +39,7 @@ import {
   menuChoice,
   modeSituation,
   openingMenu,
+  openingOffer,
   somethingElseReply,
   type ChatMode,
 } from './sales';
@@ -76,6 +77,7 @@ import { lookupBotAnswerCache, saveBotAnswerCache } from './answer-cache';
 import { jevGrounding, loadJevRuntime, type JevRuntime, type JevUsage } from './jev';
 import { unsupportedFigures } from './figures';
 import { prepareTraderLookup, type LookupStep } from './trader-data/lookup';
+import { loadStorefront } from './trader-data/storefront';
 import { understandMessage } from './understanding';
 import { assistRoute } from './router-assist';
 import { withoutImageNote } from './vision';
@@ -1323,6 +1325,11 @@ async function respondToVisitor({
   // The screenshot note (vision.ts) is English; the reply follows the visitor's own words.
   const lang = replyLanguageOf(withoutImageNote(incomingMessage) || incomingMessage);
   const name = cleanVisitorDisplayName(visitorName);
+  // Selling is the Sales specialist's job: switched off, the chat opens with the plain menu.
+  const openingReply = async (l: ReplyLanguage, n: string | null, intro: string | null) => {
+    const store = subAgentEnabled(subAgents, 'pricing_offers') ? await loadStorefront(workspaceId).catch(() => null) : null;
+    return openingOffer(l, n, store) ?? openingMenu(l, n, intro);
+  };
 
   const priorTurns = (turns && turns.length
     ? turns
@@ -1654,9 +1661,10 @@ async function respondToVisitor({
     if (route.agent === 'greeting' && intent.intent === 'small_talk') {
       const ongoing = resuming || Boolean(humanContext) || priorTurns.some((t) => t.role === 'assistant' && !isOpeningMenu(t.content));
       const greeting = intent.smallTalkKind === 'greeting' || !intent.smallTalkKind;
-      // A new chat opens with the menu (sales.ts): new trader or a problem,
-      // in the visitor's language, with the options as buttons.
-      const menu = greeting && !ongoing ? openingMenu(lang, name, cannedGreeting) : null;
+      // A new chat opens with the current offer, coupon and cheapest plan
+      // when the firm's backend has them, otherwise the menu (sales.ts);
+      // the menu's buttons are under both.
+      const menu = greeting && !ongoing ? await openingReply(lang, name, cannedGreeting) : null;
       const text = menu
         ? menu.text
         : greeting
@@ -1722,7 +1730,7 @@ async function respondToVisitor({
       // going, or that a person handled before the bot came back, is not.
       const ongoing = resuming || Boolean(humanContext) || priorTurns.some((t) => t.role === 'assistant' && !isOpeningMenu(t.content));
       const greeting = intent.smallTalkKind === 'greeting' || !intent.smallTalkKind;
-      const menu = greeting && !ongoing ? openingMenu(lang, name, cannedGreeting) : null;
+      const menu = greeting && !ongoing ? await openingReply(lang, name, cannedGreeting) : null;
       const text = menu
         ? menu.text
         : greeting

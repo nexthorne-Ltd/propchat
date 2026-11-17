@@ -29,6 +29,7 @@
 import { localized, type ReplyLanguage } from './intent';
 import { OPENING_MENU, OPENING_MENU_QUESTION } from './opening-menu';
 import type { SubAgentId } from './sub-agents';
+import type { Storefront } from './trader-data/storefront';
 
 /* ── Opening menu ─────────────────────────────────────────────────────── */
 
@@ -104,6 +105,49 @@ export function openingMenu(
     text: `${head}\n1. ${m.options[0]}\n2. ${m.options[1]}\n3. ${m.options[2]}`,
     quickReplies: m.options.map((value, i) => ({ label: m.labels[i], value })),
   };
+}
+
+const money = (n: number) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
+const sizeLabel = (n: number) => (n >= 1000 && n % 1000 === 0 ? `$${n / 1000}K` : money(n));
+
+/**
+ * The first reply to a greeting when the firm's backend says what is on sale
+ * (storefront.ts): the running offer, the coupon, and the cheapest plan as
+ * the way to start, in a few short lines. The menu's buttons stay under it,
+ * so someone with a problem still has one tap to support. Returns null when
+ * there is nothing to show; the caller then sends the menu.
+ */
+export function openingOffer(
+  lang: ReplyLanguage,
+  name: string | null | undefined,
+  store: Storefront | null
+): { text: string; quickReplies: Array<{ label: string; value: string }> } | null {
+  if (!store || (!store.cheapest && !store.coupon && !store.offers.length)) return null;
+  const ur = lang === 'roman_ur';
+  const who = name?.trim() ? ` ${name.trim()}` : '';
+  const lines: string[] = [ur ? `Hello${who}! 👋` : `Hi${who}! 👋`];
+  for (const o of store.offers) {
+    lines.push(`🔥 ${o.description ? `${o.name}: ${o.description}` : o.name}`);
+  }
+  if (store.coupon) {
+    lines.push(
+      ur
+        ? `🎟️ Code ${store.coupon.code} use karein aur ${store.coupon.discountPercent}% off paayein.`
+        : `🎟️ Use code ${store.coupon.code} for ${store.coupon.discountPercent}% off.`
+    );
+  }
+  if (store.cheapest) {
+    const c = store.cheapest;
+    const after = store.coupon ? Math.round(c.price * (1 - store.coupon.discountPercent / 100) * 100) / 100 : null;
+    const price = after !== null && after < c.price ? `${money(after)} (${ur ? 'code ke saath' : 'with the code'}, ${ur ? 'asal' : 'was'} ${money(c.price)})` : money(c.price);
+    lines.push(
+      ur
+        ? `🚀 Sab se kam mein shuru karein: ${c.model} ${sizeLabel(c.size)} account sirf ${price} mein.`
+        : `🚀 Start small: ${c.model} ${sizeLabel(c.size)} account for just ${price}.`
+    );
+  }
+  const m = MENU[lang] ?? MENU.en;
+  return { text: lines.join('\n'), quickReplies: m.options.map((value, i) => ({ label: m.labels[i], value })) };
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
