@@ -11,6 +11,7 @@ describe('routeSubAgent: each message reaches the right specialist', () => {
     ['can I trade news?', 'trading_tools'],
     ['weekend pe trade hold kar sakta hoon?', 'rules'],
     ['phase 2 target kya hai', 'rules'],
+    ['Minimum holding time for a trade', 'rules'],
     ['is EA allowed', 'trading_tools'],
     ['stop loss lagana zaroori hai?', 'rules'],
     ['payout kab milega?', 'payouts'],

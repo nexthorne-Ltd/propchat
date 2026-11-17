@@ -161,14 +161,15 @@ export const SUB_AGENTS: SubAgentDefinition[] = [
     brief: [
       'You handle the trading rules. State the rule with its exact number, then what it means in money for their account size when they gave one (show the sum).',
       'Say whether a limit is daily or overall, trailing or static, and measured on balance or equity, when the HELP CENTER says so.',
-      'For "is X allowed?": answer yes/no first, then the condition or the reason.',
+      'For "is X allowed?": answer yes/no first, and add a condition only if it is short and decides the answer.',
+      'Do not add the penalty for breaking the rule or how other plans differ unless they asked.',
       'If they describe a situation ("I lost 600 today on 10k"), apply the rule to it and say plainly whether it breaks the rule.',
     ].join('\n'),
     articleMatch: /\b(rules?|drawdown|loss|targets?|phases?|evaluation|trading days|consistency|news|weekend|overnight|ea|expert advisors?|copy|hedg\w*|lots?|leverage|stop loss|breach|violations?|prohibited|allowed|strategies)\b/i,
     topic: [
       /\b(draw\s*-?down|\bdd\b|max(?:imum)?\s+loss|daily\s+loss|loss\s+limit|trailing|static)\b/i,
       /\b(profit\s+target|target|phase\s*[12]?|step\s*[12]|evaluation|verification\s+phase|pass(?:\s+kar)?|pass\s+ho)\b/i,
-      /\b(trading\s+days?|min(?:imum)?\s+days|consistency|weekend|overnight|hold|lot\s*size|lots?|leverage|stop\s*loss|\bsl\b|tp\b)\b/i,
+      /\b(trading\s+days?|min(?:imum)?\s+days|consistency|weekend|overnight|hold(?:ing)?|holding\s+time|lot\s*size|lots?|leverage|stop\s*loss|\bsl\b|tp\b)\b/i,
       /\b(rule|rules|allowed|not\s+allowed|forbidden|prohibited|kar\s+sakta|kar\s+sakte|ijazat|breach|violation|violate)\b/i,
     ],
   },
