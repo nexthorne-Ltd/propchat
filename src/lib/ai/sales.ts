@@ -120,12 +120,13 @@ const sizeLabel = (n: number) => (n >= 1000 && n % 1000 === 0 ? `$${n / 1000}K` 
 export function openingOffer(
   lang: ReplyLanguage,
   name: string | null | undefined,
-  store: Storefront | null
+  store: Storefront | null,
+  intro?: string | null
 ): { text: string; quickReplies: Array<{ label: string; value: string }> } | null {
   if (!store || (!store.cheapest && !store.coupon && !store.offers.length)) return null;
   const ur = lang === 'roman_ur';
   const who = name?.trim() ? ` ${name.trim()}` : '';
-  const lines: string[] = [ur ? `Hello${who}! 👋` : `Hi${who}! 👋`];
+  const lines: string[] = [intro?.trim() || (ur ? `Hello${who}! 👋` : `Hi${who}! 👋`)];
   for (const o of store.offers) {
     lines.push(`🔥 ${o.description ? `${o.name}: ${o.description}` : o.name}`);
   }

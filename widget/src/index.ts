@@ -6374,7 +6374,19 @@ class ZentryWidget {
         : `Welcome to ${rawName}`;
       // The opening menu (src/lib/ai/sales.ts): the bot reads a button, or a
       // typed "1", "2" or "3", from these exact lines.
-      const welcomeContent = `${welcomeLine} 👋\n${OPENING_MENU_QUESTION}\n${OPENING_MENU.map((o, i) => `${i + 1}. ${o.value}`).join('\n')}`;
+      let welcomeContent = `${welcomeLine} 👋\n${OPENING_MENU_QUESTION}\n${OPENING_MENU.map((o, i) => `${i + 1}. ${o.value}`).join('\n')}`;
+      // The firm's current offer, coupon and cheapest plan, when it has
+      // them (/api/widget/opening); the menu above otherwise.
+      try {
+        const res = await fetch(`${(this.config.apiUrl || DEFAULT_API_URL).replace(/\/$/, '')}/api/widget/opening`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ visitor_id: this.visitorId, visitor_token: this.visitorToken, intro: `${welcomeLine} 👋` }),
+          signal: AbortSignal.timeout(4000),
+        });
+        const d = res.ok ? await res.json() : null;
+        if (typeof d?.text === 'string' && d.text.trim()) welcomeContent = d.text.trim();
+      } catch {}
       let savedMsg: MessageItem | null = null;
       if (this.legacyData) {
         const res = await this.supabase
@@ -6605,8 +6617,9 @@ class ZentryWidget {
       if (!isVisitor) {
         let quickReplies = (msg.metadata?.quick_replies as Array<{ label: string; value?: string }> | null | undefined);
         // The welcome is written by fn_widget_welcome, which stores no
-        // buttons: an opening-menu welcome gets them here.
-        if (!quickReplies?.length && msg.metadata?.is_welcome && msg.content?.includes(`\n1. ${OPENING_MENU[0].value}`)) {
+        // buttons: the welcome (the opening menu, or the opening offer
+        // with the same buttons) gets them here.
+        if (!quickReplies?.length && msg.metadata?.is_welcome) {
           quickReplies = OPENING_MENU;
         }
         if (quickReplies && quickReplies.length > 0) {
