@@ -74,7 +74,7 @@ export interface SupportAgentPromptInput {
 export const BREVITY_RULES = [
   '- Be to the point. Match the length of the reply to the question: a simple or yes/no question gets ONE short sentence ("Do you have MT5?" → "Yes, we offer MT5." and nothing more). A question about one rule or one number gets that rule or number in one sentence ("Minimum holding time for a trade" → "Every trade must stay open for at least 3 minutes." and nothing more). Most replies are 1-2 sentences; use more only when they ask how to do something, ask for a list, or have a problem to solve.',
   '- Answer only what was asked. Do not add background, features, tips, offers or a follow-up question they did not ask for. Do not add what happens if the rule is broken, which accounts or stages it applies to, or how other plans handle it, unless they asked about that; they will ask if they want it. No closing lines like "Let me know if you need anything else" or "Feel free to ask".',
-  '- Natural and warm, but no filler. Short bullet points only for steps or a list of rules they asked for.',
+  '- Natural and warm, but no filler. Short bullet points only for steps or a list of rules they asked for: every bullet on its own line, one short line each, no explanation inside a bullet.',
 ].join('\n');
 
 /**
@@ -94,12 +94,19 @@ const CONSEQUENCE_SENTENCE =
 export function trimUnaskedConsequences(reply: string, question: string): string {
   const q = question.trim();
   if (!q || q.split(/\s+/).length > 14 || ASKS_CONSEQUENCE.test(q)) return reply;
-  // Lists and multi-paragraph answers are left alone: they were asked for.
-  if (/\n/.test(reply.trim())) return reply;
-  const sentences = reply.trim().match(/[^.!?]+(?:[.!?]+|$)/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
-  if (sentences.length < 2) return reply;
-  const kept = [sentences[0], ...sentences.slice(1).filter((s) => !CONSEQUENCE_SENTENCE.test(s))];
-  return kept.length === sentences.length ? reply : kept.join(' ');
+  // Line by line, so a rules list keeps every rule (each line's first
+  // sentence) and loses only the penalty text tacked onto it.
+  const trimLine = (line: string): string => {
+    const lead = line.match(/^\s*(?:[-*•]|\d+[.)])?\s*/)?.[0] ?? '';
+    const body = line.slice(lead.length);
+    // Split on ". " but not inside figures like "4.5%" or "$1.5k".
+    const sentences = body.match(/(?:[^.!?]|[.!?](?=\S))+(?:[.!?]+|$)/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
+    if (sentences.length < 2) return line;
+    const kept = [sentences[0], ...sentences.slice(1).filter((s) => !CONSEQUENCE_SENTENCE.test(s))];
+    return kept.length === sentences.length ? line : `${lead}${kept.join(' ')}`;
+  };
+  const out = reply.split('\n').map(trimLine).join('\n');
+  return out === reply ? reply : out;
 }
 
 export function buildSupportAgentPrompt(input: SupportAgentPromptInput): string {
@@ -129,7 +136,7 @@ export function buildSupportAgentPrompt(input: SupportAgentPromptInput): string 
     '   - Login fails or "invalid account" on MT4/MT5: log in with the account number exactly as in the credentials email, the master (trading) password, not the investor one, and the exact server name from that email (type it in the server search if it is not listed); copy and paste without extra spaces; MT5 details only work in MT5; switch off any VPN or try another network; restart or reinstall the platform; a brand-new account can take a little while to become active.',
     '   - Dashboard not showing trades or balance: it syncs from the platform and can lag behind; log out and back in, and check that they are looking at the same account number they trade on.',
     '   - Verification, credentials or login email not received: check spam, junk and promotions, search the inbox for our name, confirm the address they signed up with, and use resend if the page offers it.',
-    `10. Questions about ${brand}'s products, rules, prices, instruments, platforms, community links or how anything works are never handed over: answer from the HELP CENTER, or say plainly that it is not listed and give the closest thing it does say. "Send me all the rules" deserves the full list as short bullet points.`,
+    `10. Questions about ${brand}'s products, rules, prices, instruments, platforms, community links or how anything works are never handed over: answer from the HELP CENTER, or say plainly that it is not listed and give the closest thing it does say. "Send me all the rules" deserves the list, each rule on its own line as "- Name: figure" and nothing else (e.g. "- Profit target: 4% ($400)", "- Daily loss: 4% ($400)", "- Min holding time: 3 minutes"). No explanation of how a rule works, no examples, no consequences, no exceptions in that list; they will ask about the one they care about.`,
     '',
     '# STYLE',
     `- Reply in ${LANGUAGE_LABEL[input.lang]}, matching how the customer writes (casual Roman Urdu gets casual Roman Urdu).`,

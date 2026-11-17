@@ -22,10 +22,27 @@ describe('trimUnaskedConsequences', () => {
     expect(trimUnaskedConsequences(reply, 'is that a breach')).toBe(reply);
   });
 
-  it('never touches the first sentence, lists or a single sentence', () => {
+  it('never touches the first sentence of a line', () => {
     expect(trimUnaskedConsequences('Breaching it terminates the account.', 'holding time')).toBe('Breaching it terminates the account.');
-    const list = 'Rules:\n- 3 minute hold. Breach terminates the account.';
-    expect(trimUnaskedConsequences(list, 'all rules')).toBe(list);
+  });
+
+  it('keeps every rule in a list and drops only the penalty text', () => {
+    const list = [
+      'Flex $10k rules:',
+      '- Profit target: 4% ($400). No minimum days.',
+      '- Daily loss: 4% ($400). Breach = account closed, no reset.',
+      '- Min holding time: 3 minutes. Trades under 3 minutes are flagged and the payout may be rejected.',
+      '- Max loss: 8.5% trailing.',
+    ].join('\n');
+    expect(trimUnaskedConsequences(list, 'Flex account all rules batao')).toBe(
+      [
+        'Flex $10k rules:',
+        '- Profit target: 4% ($400). No minimum days.',
+        '- Daily loss: 4% ($400).',
+        '- Min holding time: 3 minutes.',
+        '- Max loss: 8.5% trailing.',
+      ].join('\n')
+    );
   });
 });
 

@@ -727,7 +727,11 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         console.warn('[Auto-Respond] Reply translation to English failed:', err);
       }
-    } else if (visitorLang.code !== 'en') {
+    } else if (visitorLang.code !== 'en' && !visitorLang.roman) {
+      // Roman Urdu is skipped: the free translator turned a mixed Roman
+      // Urdu/English rules list into nonsense ("Daily Blessings", "Shimum
+      // Lucis") with its line breaks gone, and that is what the inbox showed.
+      // The reply is mostly English already; agents read it as sent.
       // Already in the visitor's language: keep an English copy for agents.
       // Only agents read it, so the free translator does; a model call here
       // was spent on every non-English reply.
