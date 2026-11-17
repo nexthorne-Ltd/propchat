@@ -77,6 +77,31 @@ export const BREVITY_RULES = [
   '- Natural and warm, but no filler. Short bullet points only for steps or a list of rules they asked for.',
 ].join('\n');
 
+/**
+ * The model keeps appending "Closing earlier is a hard breach and the account
+ * is terminated" to a plain "what is the minimum holding time?", even when
+ * the prompt forbids it, and traders read that as a threat and leave. So the
+ * code removes it: when a short question does not ask about consequences,
+ * any sentence after the first that is about a breach, termination or
+ * penalty is dropped. The first sentence is never touched, and a question
+ * that does ask ("what happens if…", "agar…", "breach") keeps the full reply.
+ */
+const ASKS_CONSEQUENCE =
+  /\b(what\s+happens?|happen|if|otherwise|else|consequence|penalt\w*|breach\w*|violat\w*|terminat\w*|fail\w*|lose|lost|disqualif\w*|why|agar|warna|kya\s+hoga|kia\s+hoga|toot\w*|band\s+ho)\b/i;
+const CONSEQUENCE_SENTENCE =
+  /\b(breach\w*|terminat\w*|violat\w*|disqualif\w*|penalt\w*|forfeit\w*|void\w*|flagged|reject\w*|(?:account|it)\s+(?:is|will\s+be|gets?)\s+(?:closed|failed|lost|banned))\b/i;
+
+export function trimUnaskedConsequences(reply: string, question: string): string {
+  const q = question.trim();
+  if (!q || q.split(/\s+/).length > 14 || ASKS_CONSEQUENCE.test(q)) return reply;
+  // Lists and multi-paragraph answers are left alone: they were asked for.
+  if (/\n/.test(reply.trim())) return reply;
+  const sentences = reply.trim().match(/[^.!?]+(?:[.!?]+|$)/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
+  if (sentences.length < 2) return reply;
+  const kept = [sentences[0], ...sentences.slice(1).filter((s) => !CONSEQUENCE_SENTENCE.test(s))];
+  return kept.length === sentences.length ? reply : kept.join(' ');
+}
+
 export function buildSupportAgentPrompt(input: SupportAgentPromptInput): string {
   const { botName, businessName: brand, visitorName } = input;
   const custom = input.customInstructions?.trim();

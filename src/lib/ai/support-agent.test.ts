@@ -1,5 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { buildSupportAgentPrompt, parseAgentReply } from '@/lib/ai/support-agent';
+import { buildSupportAgentPrompt, parseAgentReply, trimUnaskedConsequences } from '@/lib/ai/support-agent';
+
+describe('trimUnaskedConsequences', () => {
+  const reply = 'Every trade must stay open for at least 3 minutes. Closing earlier is a hard breach and the account is terminated.';
+
+  it('drops the penalty a plain rule question did not ask about', () => {
+    expect(trimUnaskedConsequences(reply, 'Minimum holding time for a trade')).toBe(
+      'Every trade must stay open for at least 3 minutes.'
+    );
+    expect(
+      trimUnaskedConsequences(
+        `${reply} This applies to all account types and stages. On Flex it's flagged and reviewed at withdrawal.`,
+        'minimum holding time?'
+      )
+    ).toBe('Every trade must stay open for at least 3 minutes. This applies to all account types and stages.');
+  });
+
+  it('keeps it when the customer asks what happens', () => {
+    expect(trimUnaskedConsequences(reply, 'what happens if I close a trade before 3 minutes?')).toBe(reply);
+    expect(trimUnaskedConsequences(reply, 'agar 3 min se pehle close karun to?')).toBe(reply);
+    expect(trimUnaskedConsequences(reply, 'is that a breach')).toBe(reply);
+  });
+
+  it('never touches the first sentence, lists or a single sentence', () => {
+    expect(trimUnaskedConsequences('Breaching it terminates the account.', 'holding time')).toBe('Breaching it terminates the account.');
+    const list = 'Rules:\n- 3 minute hold. Breach terminates the account.';
+    expect(trimUnaskedConsequences(list, 'all rules')).toBe(list);
+  });
+});
 
 describe('parseAgentReply', () => {
   it('strips the tags and reads the source', () => {

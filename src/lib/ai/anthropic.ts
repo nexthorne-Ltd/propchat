@@ -16,6 +16,7 @@ import {
   buildSupportAgentPrompt,
   parseAgentReply,
   RETRY_SITUATION,
+  trimUnaskedConsequences,
   UPSET_SITUATION,
 } from './support-agent';
 import {
@@ -1170,6 +1171,8 @@ async function answerAsSupportAgent(input: SupportAgentInput): Promise<HelpDeskR
       }
     }
   }
+
+  if (!parsed.handover) parsed = { ...parsed, text: trimUnaskedConsequences(parsed.text, input.incomingMessage) };
 
   const source = parsed.sourceIndex ? knowledge.sources[parsed.sourceIndex - 1] ?? null : null;
   const citation = source && source.kind !== 'knowledge' ? source : null;
