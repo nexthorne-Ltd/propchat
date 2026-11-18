@@ -52,6 +52,24 @@ describe('openingOffer', () => {
     expect(menuChoice(r.quickReplies[1].value)).toBe(2);
   });
 
+  it('Bullish4ex: expired coupons and offers are skipped, equal prices start with the smallest account', () => {
+    const bullish = buildStorefront(
+      [25000, 5000, 3000, 10000].map((size) => ({ model: 'Flex', size, price: 9 })),
+      [
+        { code: 'RANGE60', discountPercent: 60, status: 'active', expiresAt: '2026-09-25T06:05:00+00:00' },
+        { code: 'BF7', discountPercent: 70, status: 'active', expiresAt: '2026-11-28T00:00:00+00:00' },
+      ],
+      [
+        { name: 'Bogo', status: 'active', startsAt: '2026-09-20T19:00:00Z', expiresAt: '2026-10-27T19:19:00Z', userIds: [], accountIds: [] },
+        { name: 'bullbogo', status: 'active', startsAt: '2026-10-28T00:00:00Z', expiresAt: '2026-11-30T00:00:00Z', userIds: [], accountIds: [] },
+      ],
+      now
+    );
+    expect(openingOffer('en', null, bullish, 'Welcome to Bullish4ex 👋')!.text).toBe(
+      ['Welcome to Bullish4ex 👋', '🔥 bullbogo', '🎟️ Use code BF7 for 70% off.', '🚀 Start small: Flex $3K account for just $2.70 (with the code, was $9).'].join('\n')
+    );
+  });
+
   it('speaks Roman Urdu and falls back to the menu when nothing is on sale', () => {
     expect(openingOffer('roman_ur', null, store)!.text).toContain('Code OFF20 use karein aur 20% off paayein.');
     expect(openingOffer('en', null, null)).toBeNull();
