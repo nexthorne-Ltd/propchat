@@ -397,6 +397,18 @@ const recordGap = (req: AnswerRequest, reason: string) => {
   return recordUnanswered(req.workspaceId, req.message, reason, req.conversationId, req.queryEmbedding);
 };
 
+/**
+ * Learned human demonstrations (learning/human-reinforce.ts) are stored as
+ * "Customer Question: … Human Agent Answer: …" so the model can imitate
+ * them. When no model writes the reply, the stored text is sent as is, and
+ * the visitor saw both labels and the other customer's question. Only the
+ * agent's answer may reach them.
+ */
+export function demonstrationAnswer(content: string): string {
+  const m = content.match(/Human Agent Answer:\s*([\s\S]*)$/i);
+  return m ? m[1].trim() : content;
+}
+
 export async function answerFromHelpCenter(
   req: AnswerRequest
 ): Promise<HelpAnswer> {
@@ -433,9 +445,9 @@ export async function answerFromHelpCenter(
       topChunk.combined_score >= (req.highConfidence?.combined ?? HIGH_COMBINED_SCORE);
 
     if (isHighSimilarity) {
-      const cleanContent = topChunk.content
-        .replace(/^Article:\s*.*?\nSection:\s*.*?\n\n/i, '')
-        .trim();
+      const cleanContent = demonstrationAnswer(
+        topChunk.content.replace(/^Article:\s*.*?\nSection:\s*.*?\n\n/i, '').trim()
+      );
       const isKnowledge = topChunk.source === 'knowledge';
       const link = isKnowledge ? null : articleUrl(req.helpCenterUrl, { id: topChunk.article_id, slug: topChunk.article_slug });
 
@@ -488,7 +500,7 @@ export async function answerFromHelpCenter(
   }
 
   const article = verdict.hit.article;
-  const passage = extractPassage(article.content, req.message, {
+  const passage = extractPassage(demonstrationAnswer(article.content), req.message, {
     history: req.history,
     maxChars: 700,
   });

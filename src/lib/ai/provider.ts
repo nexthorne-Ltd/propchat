@@ -315,7 +315,15 @@ async function openAiChat(
             ...req.messages,
           ],
           ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
-          ...(withSwitch ? { chat_template_kwargs: { thinking: false, enable_thinking: false } } : {}),
+          // OpenRouter ignores chat_template_kwargs: DeepSeek V4.1 Flash spent a
+          // whole fast call's budget thinking and returned an empty reply,
+          // which sent the bot to its raw-passage fallback. OpenRouter's own
+          // switch is `reasoning.enabled`.
+          ...(withSwitch
+            ? /openrouter\.ai/i.test(baseUrl)
+              ? { reasoning: { enabled: false } }
+              : { chat_template_kwargs: { thinking: false, enable_thinking: false } }
+            : {}),
         }),
       },
       timeoutMs,

@@ -68,6 +68,21 @@ export const FRIENDLY_HANDOVER_MESSAGE =
   "I'm connecting you with a member of our team who will assist you shortly.";
 
 /**
+ * The platform model is pinned in code to DeepSeek V4.1 Flash on OpenRouter,
+ * at the owner's request, so every bot reply and decision uses it whatever
+ * the Super admin → Platform AI screen holds. The key lives in the Vercel
+ * environment (OPENROUTER_API_KEY), never in the repo: GitHub push
+ * protection refuses it, and a leaked key is revoked. Without the variable
+ * the settings stored in platform_ai_settings apply, as before.
+ */
+const HARDCODED_PLATFORM_AI: ProviderConfig = {
+  provider: 'compatible',
+  model: 'deepseek/deepseek-v4.1-flash',
+  apiKey: (process.env.OPENROUTER_API_KEY || '').trim(),
+  baseUrl: 'https://openrouter.ai/api/v1',
+};
+
+/**
  * Loads the platform AI settings securely on the server.
  * Never leaks the API key to client bundles or logs.
  */
@@ -76,6 +91,10 @@ export async function getPlatformAiConfigServerOnly(): Promise<{
   config: ProviderConfig | null;
   model: string | null;
 }> {
+  if (HARDCODED_PLATFORM_AI.apiKey && !process.env.VITEST) {
+    return { isEnabled: true, config: { ...HARDCODED_PLATFORM_AI }, model: HARDCODED_PLATFORM_AI.model ?? null };
+  }
+
   const adminClient = serviceClient();
   const { data: settings, error } = await adminClient
     .from('platform_ai_settings')
